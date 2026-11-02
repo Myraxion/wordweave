@@ -1,0 +1,18 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+
+# Logs & Temp
+*.log
+*.tmp
+
+# agent
+.scratch/
+.claude/
+.agents/skills/
+
+references/
