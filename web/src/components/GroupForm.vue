@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ApiError, createEntry, createGroup, errorMessage, getGroupTypes, listEntries, type Entry, type Group } from '../api'
+import { ApiError, createEntry, createGroup, deleteGroup, errorMessage, getGroupTypes, listEntries, updateGroup, type Entry, type Group } from '../api'
 
-const props = defineProps<{ entry: Entry }>()
-const emit = defineEmits<{ saved: [group: Group]; cancel: [] }>()
+const props = defineProps<{ entry?: Entry; group?: Group }>()
+const emit = defineEmits<{ saved: [group: Group]; deleted: []; cancel: [] }>()
 const types = ref<string[]>([])
-const type = ref('')
-const note = ref('')
+const type = ref(props.group?.type || '')
+const note = ref(props.group?.note || '')
 const query = ref('')
 const results = ref<Entry[]>([])
-const selected = ref<Entry[]>([])
+const selected = ref<Entry[]>(props.group ? [...props.group.members] : [])
 const loading = ref(false)
 const searchError = ref('')
 const typesError = ref('')
@@ -22,7 +22,7 @@ const newDefinition = ref('')
 const entrySaving = ref(false)
 const entryError = ref('')
 const existingEntry = ref<Entry>()
-const candidates = computed(() => results.value.filter(member => member.id !== props.entry.id))
+const candidates = computed(() => results.value.filter(member => member.id !== props.entry?.id))
 let searchNumber = 0
 
 async function loadTypes() {
@@ -63,7 +63,7 @@ function cancelEntry() {
 }
 
 function selectEntry(member: Entry) {
-  if (member.id !== props.entry.id && !selected.value.some(value => value.id === member.id)) {
+  if (member.id !== props.entry?.id && !selected.value.some(value => value.id === member.id)) {
     selected.value.push(member)
   }
   cancelEntry()
@@ -94,7 +94,17 @@ async function save() {
   existingGroup.value = undefined
   saving.value = true
   try {
-    const group = await createGroup(props.entry.id, type.value, note.value, selected.value.map(member => member.id))
+    if (props.group && selected.value.length < 2) {
+      if (window.confirm('剩余成员不足两个，保存后将删除整个关系组；所有词条都会保留。确定继续吗？')) {
+        await deleteGroup(props.group.id)
+        emit('deleted')
+      }
+      return
+    }
+    const ids = selected.value.map(member => member.id)
+    const group = props.group
+      ? await updateGroup(props.group.id, type.value, note.value, ids)
+      : await createGroup(props.entry!.id, type.value, note.value, ids)
     emit('saved', group)
   } catch (err) {
     error.value = errorMessage(err)
@@ -113,13 +123,13 @@ watch(query, search, { immediate: true })
 </script>
 
 <template>
-  <form class="form-card group-form" aria-label="建立关系组" @submit.prevent="save">
-    <h2>建立关系组</h2>
+  <form class="form-card group-form" :aria-label="group ? '编辑关系组' : '建立关系组'" @submit.prevent="save">
+    <h2>{{ group ? '编辑关系组' : '建立关系组' }}</h2>
     <p class="subtitle">选择已有词条，一起记录含义、用法或区别。</p>
     <fieldset :disabled="saving || entrySaving">
-      <legend>组成员（已选 {{ selected.length + 1 }} 个）</legend>
+      <legend>组成员（已选 {{ selected.length + (entry ? 1 : 0) }} 个）</legend>
       <ul class="selected-members">
-        <li><span lang="en">{{ entry.spelling }}</span><small>当前词条</small></li>
+        <li v-if="entry"><span lang="en">{{ entry.spelling }}</span><small>当前词条</small></li>
         <li v-for="member in selected" :key="member.id">
           <span lang="en">{{ member.spelling }}</span>
           <button type="button" class="text-button" :aria-label="'取消选择 ' + member.spelling" @click="toggle(member)">×</button>
@@ -128,7 +138,7 @@ watch(query, search, { immediate: true })
       <div class="field">
         <label for="member-search">搜索并多选词条</label>
         <input id="member-search" v-model="query" type="search" placeholder="搜索拼写或释义" autocomplete="off" />
-        <p class="field-hint">当前词条始终在组内；切换搜索会保留已选成员。至少选择一个其他词条。</p>
+        <p class="field-hint">{{ group ? '切换搜索会保留已选成员。至少保留两个成员。' : '当前词条始终在组内；切换搜索会保留已选成员。至少选择一个其他词条。' }}</p>
       </div>
       <div v-if="searchError" class="notice error" role="alert">
         {{ searchError }} <button type="button" class="text-button" @click="search">重试搜索</button>
@@ -187,8 +197,8 @@ watch(query, search, { immediate: true })
       </RouterLink>
     </div>
     <div class="form-actions">
-      <button class="button secondary" type="button" :disabled="saving || entrySaving" @click="emit('cancel')">取消建组</button>
-      <button class="button primary" type="submit" :disabled="saving || entrySaving || addingEntry || !type || selected.length === 0">
+      <button class="button secondary" type="button" :disabled="saving || entrySaving" @click="emit('cancel')">{{ group ? '取消编辑' : '取消建组' }}</button>
+      <button class="button primary" type="submit" :disabled="saving || entrySaving || addingEntry || !type || (!group && selected.length === 0)">
         {{ saving ? '正在保存…' : '保存关系组' }}
       </button>
     </div>

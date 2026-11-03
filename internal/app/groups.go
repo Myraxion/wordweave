@@ -23,6 +23,87 @@ type Group struct {
 var errInvalidGroup = errors.New("invalid group")
 var errDuplicateGroup = errors.New("duplicate group")
 
+func (a *App) updateGroup(ctx context.Context, id int64, kind, note string, memberIDs []int64) (Group, error) {
+	ids := slices.Clone(memberIDs)
+	slices.Sort(ids)
+	ids = slices.Compact(ids)
+	if !slices.Contains(relationTypes, kind) || len(ids) < 2 || ids[0] <= 0 {
+		return Group{}, errInvalidGroup
+	}
+	keys := make([]string, len(ids))
+	for i, memberID := range ids {
+		keys[i] = strconv.FormatInt(memberID, 10)
+	}
+	key := strings.Join(keys, ",")
+	tx, err := a.db.BeginTx(ctx, nil)
+	if err != nil {
+		return Group{}, err
+	}
+	defer tx.Rollback()
+	var existingID int64
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM relation_groups WHERE id = ?", id).Scan(&existingID); err != nil {
+		return Group{}, err
+	}
+	err = tx.QueryRowContext(ctx, "SELECT id FROM relation_groups WHERE type = ? AND member_key = ? AND id != ?", kind, key, id).Scan(&existingID)
+	if err == nil {
+		tx.Rollback()
+		existing, err := a.getGroup(ctx, existingID)
+		if err != nil {
+			return Group{}, err
+		}
+		return existing, errDuplicateGroup
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return Group{}, err
+	}
+	if _, err := tx.ExecContext(ctx, "UPDATE relation_groups SET type = ?, note = ?, member_key = ? WHERE id = ?", kind, note, key, id); err != nil {
+		return Group{}, err
+	}
+	if _, err := tx.ExecContext(ctx, "DELETE FROM group_members WHERE group_id = ?", id); err != nil {
+		return Group{}, err
+	}
+	for _, memberID := range ids {
+		result, err := tx.ExecContext(ctx, "INSERT INTO group_members (group_id, entry_id) SELECT ?, id FROM entries WHERE id = ?", id, memberID)
+		if err != nil {
+			return Group{}, err
+		}
+		count, err := result.RowsAffected()
+		if err != nil {
+			return Group{}, err
+		}
+		if count != 1 {
+			return Group{}, errInvalidGroup
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return Group{}, err
+	}
+	return a.getGroup(ctx, id)
+}
+
+func (a *App) removeGroup(ctx context.Context, id int64) error {
+	tx, err := a.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, "DELETE FROM group_members WHERE group_id = ?", id); err != nil {
+		return err
+	}
+	result, err := tx.ExecContext(ctx, "DELETE FROM relation_groups WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	count, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if count == 0 {
+		return sql.ErrNoRows
+	}
+	return tx.Commit()
+}
+
 func (a *App) addGroup(ctx context.Context, kind, note string, memberIDs []int64) (Group, error) {
 	ids := slices.Clone(memberIDs)
 	slices.Sort(ids)

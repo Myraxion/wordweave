@@ -8,6 +8,54 @@ import (
 	"strconv"
 )
 
+func (a *App) editGroup(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的关系组编号。"})
+		return
+	}
+	var input struct {
+		Type      string  `json:"type"`
+		Note      string  `json:"note"`
+		MemberIDs []int64 `json:"memberIds"`
+	}
+	if json.NewDecoder(r.Body).Decode(&input) != nil {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "请输入有效的 JSON 关系组。"})
+		return
+	}
+	group, err := a.updateGroup(r.Context(), id, input.Type, input.Note, input.MemberIDs)
+	switch {
+	case errors.Is(err, errInvalidGroup):
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "请选择一种关系类型和至少两个不同的已有词条。"})
+	case errors.Is(err, errDuplicateGroup):
+		writeJSON(w, http.StatusConflict, apiError{Error: "这个关系组已存在。", ExistingGroup: &group})
+	case errors.Is(err, sql.ErrNoRows):
+		writeJSON(w, http.StatusNotFound, apiError{Error: "找不到这个关系组。"})
+	case err != nil:
+		internalError(w, err)
+	default:
+		writeJSON(w, http.StatusOK, group)
+	}
+}
+
+func (a *App) deleteGroup(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的关系组编号。"})
+		return
+	}
+	err = a.removeGroup(r.Context(), id)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeJSON(w, http.StatusNotFound, apiError{Error: "找不到这个关系组。"})
+		return
+	}
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+}
+
 func (a *App) createGroup(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {

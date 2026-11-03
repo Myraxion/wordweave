@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { errorMessage, getGroup, type Group } from '../api'
+import { ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { deleteGroup, errorMessage, getGroup, type Group } from '../api'
 import GroupCard from '../components/GroupCard.vue'
+import GroupForm from '../components/GroupForm.vue'
 
 const props = defineProps<{ id: string }>()
 const group = ref<Group>()
 const loading = ref(true)
 const error = ref('')
+const editing = ref(false)
+const deleting = ref(false)
+const router = useRouter()
 
 async function load() {
   loading.value = true
@@ -19,7 +24,25 @@ async function load() {
     loading.value = false
   }
 }
-onMounted(load)
+watch(() => props.id, () => { editing.value = false; void load() }, { immediate: true })
+
+async function remove() {
+  if (!group.value || !window.confirm('确定删除整个关系组吗？所有成员词条都会保留。')) return
+  deleting.value = true
+  try {
+    await deleteGroup(group.value.id)
+    await router.push('/')
+  } catch (err) {
+    error.value = errorMessage(err)
+  } finally {
+    deleting.value = false
+  }
+}
+
+function saved(updated: Group) {
+  group.value = updated
+  editing.value = false
+}
 </script>
 
 <template>
@@ -30,6 +53,13 @@ onMounted(load)
     <div class="page-heading">
       <div><p class="eyebrow">READ TOGETHER</p><h1>{{ group.type }}</h1><p class="subtitle">点击成员，继续查看词条及其关系组。</p></div>
     </div>
-    <GroupCard :group="group" />
+    <GroupForm v-if="editing" :group="group" @saved="saved" @deleted="router.push('/')" @cancel="editing = false" />
+    <template v-else>
+      <div class="heading-actions">
+        <button class="button primary" type="button" @click="editing = true">编辑关系组</button>
+        <button class="button secondary" type="button" :disabled="deleting" @click="remove">删除关系组</button>
+      </div>
+      <GroupCard :group="group" />
+    </template>
   </template>
 </template>

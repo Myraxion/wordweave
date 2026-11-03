@@ -200,14 +200,20 @@ func TestEditedEntriesAppearInAllGroups(t *testing.T) {
 	a := collect(t, s, "dew", "露水")
 	b := collect(t, s, "dewy", "")
 	original := createGroup(t, s, a.ID, "词族", "共享说明", b.ID)
+	other := createGroup(t, s, a.ID, "近义", "独立说明", b.ID)
 	var updated entry
 	request(t, s, "PUT", "/api/entries/"+strconv.FormatInt(b.ID, 10),
 		`{"spelling":"A dewy morning","definition":"带露水的清晨\n新释义"}`, http.StatusOK, &updated)
 	var got []group
 	request(t, s, "GET", groupsPath(a.ID), "", http.StatusOK, &got)
 	original.Members = []entry{updated, a}
-	if !reflect.DeepEqual(got, []group{original}) {
+	other.Members = []entry{updated, a}
+	if !reflect.DeepEqual(got, []group{other, original}) {
 		t.Fatalf("group shows stale spelling, definition or sorting: %+v", got)
+	}
+	request(t, s, "GET", groupsPath(b.ID), "", http.StatusOK, &got)
+	if !reflect.DeepEqual(got, []group{other, original}) {
+		t.Fatalf("other member sees stale or merged groups: %+v", got)
 	}
 }
 
@@ -233,6 +239,82 @@ func TestCollectedEntrySurvivesCancelledAndFailedGroup(t *testing.T) {
 		request(t, s, "GET", groupsPath(id), "", http.StatusOK, &groups)
 		if len(groups) != 0 {
 			t.Fatalf("failed or cancelled group left data: %+v", groups)
+		}
+	}
+}
+
+func TestEditGroupVisibleFromMembers(t *testing.T) {
+	s := startApp(t, t.TempDir())
+	a := collect(t, s, "apple", "苹果")
+	b := collect(t, s, "banana", "香蕉")
+	c := collect(t, s, "cherry", "樱桃")
+	original := createGroup(t, s, a.ID, "近义", "旧说明", b.ID)
+	path := "/api/groups/" + strconv.FormatInt(original.ID, 10)
+	var updated group
+	request(t, s, "PUT", path, groupBody(t, "反义", "", []int64{b.ID, c.ID}), http.StatusOK, &updated)
+	if updated.ID != original.ID || updated.CreatedAt != original.CreatedAt || updated.Type != "反义" || updated.Note != "" || !reflect.DeepEqual(updated.Members, []entry{b, c}) {
+		t.Fatalf("unexpected update: %+v", updated)
+	}
+	for _, member := range []entry{b, c} {
+		var groups []group
+		request(t, s, "GET", groupsPath(member.ID), "", http.StatusOK, &groups)
+		if !reflect.DeepEqual(groups, []group{updated}) {
+			t.Fatalf("member sees %+v", groups)
+		}
+	}
+	var removed []group
+	request(t, s, "GET", groupsPath(a.ID), "", http.StatusOK, &removed)
+	if len(removed) != 0 {
+		t.Fatalf("removed member sees %+v", removed)
+	}
+	request(t, s, "GET", "/api/entries/"+strconv.FormatInt(a.ID, 10), "", http.StatusOK, nil)
+}
+
+func TestEditGroupConflictAndInvalidMembersRollBack(t *testing.T) {
+	s := startApp(t, t.TempDir())
+	a := collect(t, s, "alpha", "")
+	b := collect(t, s, "beta", "")
+	c := collect(t, s, "gamma", "")
+	first := createGroup(t, s, a.ID, "近义", "第一份说明", b.ID)
+	second := createGroup(t, s, a.ID, "反义", "第二份说明", b.ID, c.ID)
+	path := "/api/groups/" + strconv.FormatInt(second.ID, 10)
+	var conflict struct {
+		Error         string `json:"error"`
+		ExistingGroup group  `json:"existingGroup"`
+	}
+	request(t, s, "PUT", path, groupBody(t, "近义", "不能覆盖", []int64{b.ID, a.ID}), http.StatusConflict, &conflict)
+	if conflict.Error == "" || !reflect.DeepEqual(conflict.ExistingGroup, first) {
+		t.Fatalf("unexpected conflict: %+v", conflict)
+	}
+	request(t, s, "PUT", path, groupBody(t, "词族", "不能部分保存", []int64{a.ID, 99999}), http.StatusBadRequest, nil)
+	for _, expected := range []group{first, second} {
+		var got group
+		request(t, s, "GET", "/api/groups/"+strconv.FormatInt(expected.ID, 10), "", http.StatusOK, &got)
+		if !reflect.DeepEqual(got, expected) {
+			t.Fatalf("group changed after rejected edit: %+v", got)
+		}
+	}
+}
+
+func TestDeleteGroupPreservesEntries(t *testing.T) {
+	s := startApp(t, t.TempDir())
+	a := collect(t, s, "alpha", "")
+	b := collect(t, s, "beta", "")
+	g := createGroup(t, s, a.ID, "近义", "说明", b.ID)
+	path := "/api/groups/" + strconv.FormatInt(g.ID, 10)
+	request(t, s, "DELETE", path, "", http.StatusOK, nil)
+	request(t, s, "GET", path, "", http.StatusNotFound, nil)
+	request(t, s, "DELETE", path, "", http.StatusNotFound, nil)
+	for _, member := range []entry{a, b} {
+		var got entry
+		request(t, s, "GET", "/api/entries/"+strconv.FormatInt(member.ID, 10), "", http.StatusOK, &got)
+		if got != member {
+			t.Fatalf("member changed: %+v", got)
+		}
+		var groups []group
+		request(t, s, "GET", groupsPath(member.ID), "", http.StatusOK, &groups)
+		if len(groups) != 0 {
+			t.Fatalf("group still visible: %+v", groups)
 		}
 	}
 }

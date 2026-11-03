@@ -34,6 +34,8 @@ $env:WORDWEAVE_DATA_DIR = 'D:\Notebooks\English'
 
 类型与成员集合完全相同即为重复，改变成员顺序或说明不会产生新组；冲突时提供已有组入口。修改词条拼写或释义后，各组展示同步更新。
 
+在关系组详情可编辑类型、说明和成员，或删除整个组。移除成员后不足两个时，确认保存会删除该组；删除组和移除成员均保留词条。修改造成重复时会指向已有组，不合并或覆盖说明。
+
 ## 数据库升级与恢复
 
 启动时执行嵌入的编号 SQL 迁移。新库直接初始化；已有库需要升级时，先用 SQLite `VACUUM INTO` 生成一致性快照，保存到数据目录的 `backups/wordweave-v旧版本-to-v新版本-随机后缀.db`，包含 WAL 中已提交的数据。快照方式见 [SQLite 官方文档](https://www.sqlite.org/lang_vacuum.html#vacuuminto)。
@@ -89,6 +91,8 @@ go test ./...
 
 关系组冒烟：从词条详情建组 → 单成员不能保存 → 搜索多选并切换搜索 → 保存多行说明 → 查看完整成员及 A–Z 排序 → 点击另一成员 → 反向顺序重复建组被阻止并进入已有组 → 同成员不同类型建组 → 重叠组各自显示说明、同类型最近创建在前 → 沿成员继续导航。
 
+关系组编辑冒烟：从组详情编辑类型、说明和成员 → 从各成员详情核对同一份更新 → 尝试保存为已有组并查看冲突入口 → 删除整组时取消确认并检查组仍存在 → 编辑组移除成员至不足两个，检查删除提示并先取消、再确认 → 检查组已删除而词条仍存在。
+
 ## HTTP 接口
 
 | 方法与路径 | 行为 |
@@ -101,6 +105,8 @@ go test ./...
 | `POST /api/entries/{id}/groups` | JSON `{ "type": "近义", "memberIds": [2, 3], "note": "共享说明" }`；路径中的词条自动加入，说明可省略，重复成员去重 |
 | `GET /api/entries/{id}/groups` | 该词条所属的完整关系组数组，按类型及创建时间排序；无组为 `[]`，词条不存在为 404 |
 | `GET /api/groups/{id}` | 关系组详情，不存在为 404 |
+| `PUT /api/groups/{id}` | 修改类型、说明及完整成员集合，冲突返回已有组 |
+| `DELETE /api/groups/{id}` | 删除关系组并保留所有词条 |
 
 词条返回 `id`、`spelling`、`definition`、`createdAt`（UTC RFC 3339）。创建成功为 201；拼写为空为 400；重复为 409，响应包含 `error` 和 `existingEntry`，不会覆盖原词条。
 
@@ -108,4 +114,4 @@ go test ./...
 
 ## 当前范围
 
-词条收录见 [issue #2](https://github.com/Myraxion/wordweave/issues/2)，搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)。本次关系组创建与对照阅读对应 [issue #5](https://github.com/Myraxion/wordweave/issues/5)，并补齐新增迁移前的 [issue #10](https://github.com/Myraxion/wordweave/issues/10) 升级保护。当前数据库版本为 2，词条与关系组分别由 `0001_entries.sql`、`0002_groups.sql` 建立。组编辑、关系说明搜索、按类型浏览及删除由后续票据实现。
+词条收录见 [issue #2](https://github.com/Myraxion/wordweave/issues/2)，搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)，关系组创建见 [issue #5](https://github.com/Myraxion/wordweave/issues/5)，组编辑及删除见 [issue #7](https://github.com/Myraxion/wordweave/issues/7)。当前数据库版本为 2，词条与关系组分别由 `0001_entries.sql`、`0002_groups.sql` 建立。关系说明搜索、按类型浏览及词条删除由后续票据实现。

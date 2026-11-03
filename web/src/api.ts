@@ -64,6 +64,14 @@ export const createGroup = (originId: number, type: string, note: string, member
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type, note, memberIds }),
   })
+export const updateGroup = (id: number, type: string, note: string, memberIds: number[]) =>
+  request<Group>('/groups/' + id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, note, memberIds }),
+  })
+export const deleteGroup = (id: number) =>
+  request<{ deleted: boolean }>('/groups/' + id, { method: 'DELETE' })
 
 export function errorMessage(error: unknown): string {
   return error instanceof ApiError
