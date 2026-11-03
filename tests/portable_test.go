@@ -17,7 +17,8 @@ import (
 )
 
 // Builds the shipping binary and runs it without a frontend server or source files.
-func TestPortableExecutable(t *testing.T) {
+func buildExecutable(t *testing.T) string {
+	t.Helper()
 	root, err := filepath.Abs("..")
 	if err != nil {
 		t.Fatal(err)
@@ -36,6 +37,12 @@ func TestPortableExecutable(t *testing.T) {
 	if output, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("build: %v\n%s", err, output)
 	}
+	return exe
+}
+
+func TestPortableExecutable(t *testing.T) {
+	exe := buildExecutable(t)
+	portable := filepath.Dir(exe)
 	workingDir := t.TempDir()
 	url, stop := launch(t, exe, workingDir, "")
 	index := fetch(t, url+"/entries/new", http.StatusOK)

@@ -12,6 +12,7 @@ import (
 type apiError struct {
 	Error         string `json:"error"`
 	ExistingEntry *Entry `json:"existingEntry,omitempty"`
+	ExistingGroup *Group `json:"existingGroup,omitempty"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, value any) {

@@ -5,9 +5,18 @@ export interface Entry {
   createdAt: string
 }
 
+export interface Group {
+  id: number
+  type: string
+  note: string
+  createdAt: string
+  members: Entry[]
+}
+
 interface ErrorBody {
   error: string
   existingEntry?: Entry
+  existingGroup?: Group
 }
 
 export class ApiError extends Error {
@@ -42,6 +51,18 @@ export const updateEntry = (id: string | number, spelling: string, definition: s
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ spelling, definition }),
+  })
+
+export const getGroupTypes = () => request<string[]>('/group-types')
+export const listEntryGroups = (id: string | number) =>
+  request<Group[]>('/entries/' + encodeURIComponent(id) + '/groups')
+export const getGroup = (id: string | number) =>
+  request<Group>('/groups/' + encodeURIComponent(id))
+export const createGroup = (originId: number, type: string, note: string, memberIds: number[]) =>
+  request<Group>('/entries/' + originId + '/groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, note, memberIds }),
   })
 
 export function errorMessage(error: unknown): string {

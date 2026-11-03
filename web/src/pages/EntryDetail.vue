@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import GroupCard from '../components/GroupCard.vue'
+import GroupForm from '../components/GroupForm.vue'
 import {
   ApiError,
   errorMessage,
   formatDate,
   getEntry,
+  listEntryGroups,
   updateEntry,
   type Entry,
+  type Group,
 } from '../api'
 
 const props = defineProps<{ id: string }>()
 const entry = ref<Entry>()
 const error = ref('')
 const loading = ref(true)
+const groups = ref<Group[]>([])
+const creatingGroup = ref(false)
+const sections = computed(() => [...new Set(groups.value.map(group => group.type))].map(type => ({
+  type,
+  groups: groups.value.filter(group => group.type === type),
+})))
 
 const editing = ref(false)
 const formSpelling = ref('')
@@ -26,7 +36,9 @@ async function load() {
   error.value = ''
   editing.value = false
   try {
-    entry.value = await getEntry(props.id)
+    const [loadedEntry, loadedGroups] = await Promise.all([getEntry(props.id), listEntryGroups(props.id)])
+    entry.value = loadedEntry
+    groups.value = loadedGroups
   } catch (err) {
     error.value = errorMessage(err)
   } finally {
@@ -36,6 +48,7 @@ async function load() {
 
 function startEditing() {
   if (!entry.value) return
+  creatingGroup.value = false
   formSpelling.value = entry.value.spelling
   formDefinition.value = entry.value.definition
   formError.value = ''
@@ -65,6 +78,7 @@ async function save() {
       formDefinition.value,
     )
     entry.value = updated
+    groups.value = await listEntryGroups(props.id)
     editing.value = false
   } catch (err) {
     formError.value = errorMessage(err)
@@ -77,6 +91,11 @@ async function save() {
 }
 
 onMounted(load)
+
+async function groupSaved() {
+  creatingGroup.value = false
+  await load()
+}
 </script>
 
 <template>
@@ -99,6 +118,7 @@ onMounted(load)
           </p>
         </div>
         <div class="heading-actions">
+          <button class="button primary" type="button" @click="creatingGroup = true">＋ 建立关系组</button>
           <button class="button secondary" type="button" @click="startEditing">
             ✎ 编辑词条
           </button>
@@ -107,6 +127,7 @@ onMounted(load)
           >
         </div>
       </div>
+      <GroupForm v-if="creatingGroup" :entry="entry" @saved="groupSaved" @cancel="creatingGroup = false" />
       <section class="detail-card">
         <h2>释义<span class="section-line"></span></h2>
         <p class="definition" :class="{ muted: !entry.definition }">
@@ -115,14 +136,18 @@ onMounted(load)
       </section>
       <section class="detail-card">
         <h2>
-          关系组<span class="small-count">0</span
+          关系组<span class="small-count">{{ groups.length }}</span
           ><span class="section-line"></span>
         </h2>
-        <div class="group-empty">
+        <div v-if="!groups.length" class="group-empty">
           <span aria-hidden="true">○ — ○</span>
           <p>暂无关系组</p>
           <small>这个词条还没有关联到其他词条。</small>
         </div>
+        <section v-for="section in sections" :key="section.type" class="relation-section" :aria-label="section.type">
+          <h3 class="relation-type">{{ section.type }} <span class="small-count">{{ section.groups.length }}</span></h3>
+          <GroupCard v-for="group in section.groups" :key="group.id" :group="group" :current-id="entry.id" />
+        </section>
       </section>
     </div>
 

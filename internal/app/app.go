@@ -28,7 +28,11 @@ func Open(dataDir string) (*App, error) {
 	}
 	// A single connection serializes writes for this single-user application.
 	db.SetMaxOpenConns(1)
-	if err := migrate(db); err != nil {
+	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
+		db.Close()
+		return nil, err
+	}
+	if err := migrate(db, dataDir); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("initialize database: %w", err)
 	}
@@ -38,6 +42,12 @@ func Open(dataDir string) (*App, error) {
 	mux.HandleFunc("GET /api/entries", a.showEntries)
 	mux.HandleFunc("GET /api/entries/{id}", a.showEntry)
 	mux.HandleFunc("PUT /api/entries/{id}", a.editEntry)
+	mux.HandleFunc("POST /api/entries/{id}/groups", a.createGroup)
+	mux.HandleFunc("GET /api/entries/{id}/groups", a.showEntryGroups)
+	mux.HandleFunc("GET /api/groups/{id}", a.showGroup)
+	mux.HandleFunc("GET /api/group-types", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, relationTypes)
+	})
 	mux.HandleFunc("GET /api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, apiError{Error: "找不到这个接口。"})
 	})

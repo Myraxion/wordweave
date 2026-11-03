@@ -4,6 +4,7 @@ import App from './App.vue'
 import EntryList from './pages/EntryList.vue'
 import EntryForm from './pages/EntryForm.vue'
 import EntryDetail from './pages/EntryDetail.vue'
+import GroupDetail from './pages/GroupDetail.vue'
 import './style.css'
 
 const router = createRouter({
@@ -12,6 +13,7 @@ const router = createRouter({
     { path: '/', component: EntryList },
     { path: '/entries/new', component: EntryForm },
     { path: '/entries/:id', component: EntryDetail, props: true },
+    { path: '/groups/:id', component: GroupDetail, props: true },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
   scrollBehavior: () => ({ top: 0 }),
