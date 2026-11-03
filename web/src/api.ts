@@ -52,6 +52,8 @@ export const updateEntry = (id: string | number, spelling: string, definition: s
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ spelling, definition }),
   })
+export const deleteEntry = (id: string | number) =>
+  request<{ deleted: boolean }>(`/entries/${encodeURIComponent(id)}`, { method: 'DELETE' })
 
 export const getGroupTypes = () => request<string[]>('/group-types')
 export const search = (sort: string, query: string) =>

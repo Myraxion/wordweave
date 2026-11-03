@@ -115,3 +115,22 @@ func (a *App) editEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, entry)
 }
+
+func (a *App) deleteEntry(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的词条编号。"})
+		return
+	}
+	group, err := a.removeEntry(r.Context(), id)
+	switch {
+	case errors.Is(err, errDuplicateGroup):
+		writeJSON(w, http.StatusConflict, apiError{Error: "删除会产生重复的关系组，请先整理冲突组的说明和成员。", ExistingGroup: &group})
+	case errors.Is(err, sql.ErrNoRows):
+		writeJSON(w, http.StatusNotFound, apiError{Error: "找不到这个词条。"})
+	case err != nil:
+		internalError(w, err)
+	default:
+		writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	}
+}

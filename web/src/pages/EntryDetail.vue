@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import GroupCard from '../components/GroupCard.vue'
 import GroupForm from '../components/GroupForm.vue'
 import {
   ApiError,
+  deleteEntry,
   errorMessage,
   formatDate,
   getEntry,
@@ -14,11 +16,42 @@ import {
 } from '../api'
 
 const props = defineProps<{ id: string }>()
+const router = useRouter()
 const entry = ref<Entry>()
 const error = ref('')
 const loading = ref(true)
 const groups = ref<Group[]>([])
 const creatingGroup = ref(false)
+const confirmingDelete = ref(false)
+const deleteError = ref('')
+const conflictGroup = ref<Group>()
+const deleting = ref(false)
+
+async function startDelete() {
+  deleteError.value = ''
+  conflictGroup.value = undefined
+  try {
+    groups.value = await listEntryGroups(props.id)
+    confirmingDelete.value = true
+  } catch (err) {
+    deleteError.value = errorMessage(err)
+  }
+}
+
+async function removeEntry() {
+  deleting.value = true
+  deleteError.value = ''
+  conflictGroup.value = undefined
+  try {
+    await deleteEntry(props.id)
+    await router.push('/')
+  } catch (err) {
+    deleteError.value = errorMessage(err)
+    if (err instanceof ApiError) conflictGroup.value = err.body.existingGroup
+  } finally {
+    deleting.value = false
+  }
+}
 const sections = computed(() => [...new Set(groups.value.map(group => group.type))].map(type => ({
   type,
   groups: groups.value.filter(group => group.type === type),
@@ -122,11 +155,31 @@ async function groupSaved() {
           <button class="button secondary" type="button" @click="startEditing">
             ✎ 编辑词条
           </button>
+          <button class="button secondary" type="button" @click="startDelete">删除词条</button>
           <RouterLink class="button secondary" to="/entries/new"
             >＋ 继续收词</RouterLink
           >
         </div>
       </div>
+      <div v-if="deleteError" class="notice error" role="alert">
+        <p>{{ deleteError }}</p>
+        <RouterLink v-if="conflictGroup" :to="`/groups/${conflictGroup.id}`">查看冲突关系组：{{ conflictGroup.type }}（{{ conflictGroup.members.map(member => member.spelling).join('、') }}）→</RouterLink>
+      </div>
+      <section v-if="confirmingDelete" class="detail-card" aria-label="删除词条确认">
+        <h2>删除 {{ entry.spelling }}？</h2>
+        <p>删除后将从以下关系组中移除此词条；成员不足两个的关系组会被删除。</p>
+        <p v-if="!groups.length">此词条没有关系组。</p>
+        <ul v-else>
+          <li v-for="group in groups" :key="group.id">
+            <RouterLink :to="`/groups/${group.id}`">{{ group.type }}：{{ group.members.map(member => member.spelling).join('、') }}</RouterLink>
+            — {{ group.members.length === 2 ? '此组将被删除' : '此组将保留' }}
+          </li>
+        </ul>
+        <div class="form-actions">
+          <button class="button secondary" type="button" :disabled="deleting" @click="confirmingDelete = false; deleteError = ''">取消</button>
+          <button class="button primary" type="button" :disabled="deleting" @click="removeEntry">{{ deleting ? '正在删除…' : '确认删除' }}</button>
+        </div>
+      </section>
       <GroupForm v-if="creatingGroup" :entry="entry" @saved="groupSaved" @cancel="creatingGroup = false" />
       <section class="detail-card">
         <h2>释义<span class="section-line"></span></h2>
