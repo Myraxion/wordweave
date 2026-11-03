@@ -54,15 +54,19 @@ function toggle(member: Entry) {
   else selected.value.splice(index, 1)
 }
 
-function selectEntry(member: Entry) {
-  if (member.id !== props.entry.id && !selected.value.some(value => value.id === member.id)) {
-    selected.value.push(member)
-  }
+function cancelEntry() {
   addingEntry.value = false
   newSpelling.value = ''
   newDefinition.value = ''
   entryError.value = ''
   existingEntry.value = undefined
+}
+
+function selectEntry(member: Entry) {
+  if (member.id !== props.entry.id && !selected.value.some(value => value.id === member.id)) {
+    selected.value.push(member)
+  }
+  cancelEntry()
   void search()
 }
 
@@ -85,6 +89,7 @@ async function addEntry() {
 }
 
 async function save() {
+  if (addingEntry.value) return
   error.value = ''
   existingGroup.value = undefined
   saving.value = true
@@ -100,6 +105,10 @@ async function save() {
 }
 
 onMounted(loadTypes)
+watch(newSpelling, () => {
+  entryError.value = ''
+  existingEntry.value = undefined
+})
 watch(query, search, { immediate: true })
 </script>
 
@@ -140,7 +149,7 @@ watch(query, search, { immediate: true })
         <p class="field-hint">词条会立即保存，取消建组后仍可查找。</p>
         <div class="field">
           <label for="new-member-spelling">词条拼写 <span class="required">必填</span></label>
-          <input id="new-member-spelling" v-model="newSpelling" autocomplete="off" />
+          <input id="new-member-spelling" v-model="newSpelling" autocomplete="off" @keydown.enter.prevent="addEntry" />
         </div>
         <div class="field">
           <label for="new-member-definition">释义 <span class="optional">选填</span></label>
@@ -151,7 +160,7 @@ watch(query, search, { immediate: true })
           <button v-if="existingEntry" type="button" class="text-button" @click="selectEntry(existingEntry)">选择已有词条：{{ existingEntry.spelling }}</button>
         </div>
         <div class="form-actions">
-          <button type="button" class="button secondary" @click="addingEntry = false">取消新增</button>
+          <button type="button" class="button secondary" @click="cancelEntry">取消新增</button>
           <button type="button" class="button primary" @click="addEntry">{{ entrySaving ? '正在保存…' : '保存并选择词条' }}</button>
         </div>
       </section>
@@ -179,7 +188,7 @@ watch(query, search, { immediate: true })
     </div>
     <div class="form-actions">
       <button class="button secondary" type="button" :disabled="saving || entrySaving" @click="emit('cancel')">取消建组</button>
-      <button class="button primary" type="submit" :disabled="saving || entrySaving || !type || selected.length === 0">
+      <button class="button primary" type="submit" :disabled="saving || entrySaving || addingEntry || !type || selected.length === 0">
         {{ saving ? '正在保存…' : '保存关系组' }}
       </button>
     </div>
