@@ -114,4 +114,4 @@ go test ./...
 
 ## 当前范围
 
-词条收录见 [issue #2](https://github.com/Myraxion/wordweave/issues/2)，搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)，关系组创建见 [issue #5](https://github.com/Myraxion/wordweave/issues/5)，组编辑及删除见 [issue #7](https://github.com/Myraxion/wordweave/issues/7)。当前数据库版本为 2，词条与关系组分别由 `0001_entries.sql`、`0002_groups.sql` 建立。关系说明搜索、按类型浏览及词条删除由后续票据实现。
+词条收录见 [issue #2](https://github.com/Myraxion/wordweave/issues/2)，搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)，关系组创建见 [issue #5](https://github.com/Myraxion/wordweave/issues/5)，组编辑及删除见 [issue #7](https://github.com/Myraxion/wordweave/issues/7)，关系说明搜索与类型浏览见 [issue #8](https://github.com/Myraxion/wordweave/issues/8)，词条删除见 [issue #9](https://github.com/Myraxion/wordweave/issues/9)。当前数据库版本为 2，词条与关系组分别由 `0001_entries.sql`、`0002_groups.sql` 建立。
