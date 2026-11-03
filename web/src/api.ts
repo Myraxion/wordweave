@@ -27,12 +27,19 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export const listEntries = () => request<Entry[]>('/entries')
-export const getEntry = (id: string) =>
+export const listEntries = (sort?: string) =>
+  request<Entry[]>(sort ? `/entries?sort=${encodeURIComponent(sort)}` : '/entries')
+export const getEntry = (id: string | number) =>
   request<Entry>(`/entries/${encodeURIComponent(id)}`)
 export const createEntry = (spelling: string, definition: string) =>
   request<Entry>('/entries', {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ spelling, definition }),
+  })
+export const updateEntry = (id: string | number, spelling: string, definition: string) =>
+  request<Entry>(`/entries/${encodeURIComponent(id)}`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ spelling, definition }),
   })

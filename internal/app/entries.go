@@ -41,8 +41,19 @@ func (a *App) addEntry(ctx context.Context, spelling, definition string) (Entry,
 	return entry, err
 }
 
-func (a *App) listEntries(ctx context.Context) ([]Entry, error) {
-	rows, err := a.db.QueryContext(ctx, `SELECT id, spelling, definition, created_at FROM entries ORDER BY id DESC`)
+func (a *App) listEntries(ctx context.Context, sortOrder string) ([]Entry, error) {
+	var orderBy string
+	switch sortOrder {
+	case "created_asc":
+		orderBy = "created_at ASC, id ASC"
+	case "alpha_asc":
+		orderBy = "spelling_key ASC, id ASC"
+	case "alpha_desc":
+		orderBy = "spelling_key DESC, id DESC"
+	default:
+		orderBy = "created_at DESC, id DESC"
+	}
+	rows, err := a.db.QueryContext(ctx, `SELECT id, spelling, definition, created_at FROM entries ORDER BY `+orderBy)
 	if err != nil {
 		return nil, err
 	}
@@ -64,3 +75,31 @@ func (a *App) getEntry(ctx context.Context, id int64) (Entry, error) {
 		Scan(&entry.ID, &entry.Spelling, &entry.Definition, &entry.CreatedAt)
 	return entry, err
 }
+
+func (a *App) updateEntry(ctx context.Context, id int64, spelling, definition string) (Entry, error) {
+	trimmed := strings.TrimSpace(spelling)
+	if trimmed == "" {
+		return Entry{}, errEmptySpelling
+	}
+	spellingKey := strings.ToLower(trimmed)
+
+	var conflict Entry
+	err := a.db.QueryRowContext(ctx,
+		`SELECT id, spelling, definition, created_at FROM entries WHERE spelling_key = ? AND id != ?`,
+		spellingKey, id,
+	).Scan(&conflict.ID, &conflict.Spelling, &conflict.Definition, &conflict.CreatedAt)
+	if err == nil {
+		return conflict, errDuplicateEntry
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return Entry{}, err
+	}
+
+	var updated Entry
+	err = a.db.QueryRowContext(ctx,
+		`UPDATE entries SET spelling = ?, spelling_key = ?, definition = ? WHERE id = ?
+		 RETURNING id, spelling, definition, created_at`,
+		trimmed, spellingKey, definition, id,
+	).Scan(&updated.ID, &updated.Spelling, &updated.Definition, &updated.CreatedAt)
+	return updated, err
+}
+

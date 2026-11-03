@@ -206,6 +206,12 @@ footer span {
   gap: 25px;
   margin-bottom: 34px;
 }
+.heading-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 .eyebrow {
   font-size: 10px;
   font-weight: 600;
@@ -280,6 +286,28 @@ h1 {
   border-radius: 10px 10px 0 0;
   font-size: 11px;
   color: #99a191;
+}
+.sort-control {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.sort-label {
+  font-size: 11px;
+  color: #7c8b80;
+}
+.sort-select {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid #d2ded0;
+  background: #ffffff;
+  color: #253c35;
+  font-size: 12px;
+  cursor: pointer;
+}
+.sort-select:focus {
+  outline: 2px solid #78ac97;
+  outline-offset: 1px;
 }
 .list-heading h2 {
   font-size: 13px;

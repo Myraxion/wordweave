@@ -37,6 +37,7 @@ func Open(dataDir string) (*App, error) {
 	mux.HandleFunc("POST /api/entries", a.createEntry)
 	mux.HandleFunc("GET /api/entries", a.showEntries)
 	mux.HandleFunc("GET /api/entries/{id}", a.showEntry)
+	mux.HandleFunc("PUT /api/entries/{id}", a.editEntry)
 	mux.HandleFunc("GET /api/", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, apiError{Error: "找不到这个接口。"})
 	})

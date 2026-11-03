@@ -98,6 +98,33 @@ func TestPortableExecutable(t *testing.T) {
 	}
 	url, stop = launch(t, exe, workingDir, envDir, "-data-dir", flagDir)
 	fetch(t, url+"/api/entries", http.StatusOK)
+
+	// Verify editing and sorting work on the portable binary
+	post := func(payload string) {
+		req, _ := http.NewRequest("POST", url+"/api/entries", strings.NewReader(payload))
+		req.Header.Set("Content-Type", "application/json")
+		res, err := http.DefaultClient.Do(req)
+		if err != nil || res.StatusCode != http.StatusCreated {
+			t.Fatalf("post entry %s: %v", payload, err)
+		}
+		res.Body.Close()
+	}
+	post(`{"spelling":"zebra"}`)
+	post(`{"spelling":"ant"}`)
+
+	putReq, _ := http.NewRequest("PUT", url+"/api/entries/1", strings.NewReader(`{"spelling":"zebra","definition":"斑马"}`))
+	putReq.Header.Set("Content-Type", "application/json")
+	putRes, err := http.DefaultClient.Do(putReq)
+	if err != nil || putRes.StatusCode != http.StatusOK {
+		t.Fatalf("put entry: %v", err)
+	}
+	putRes.Body.Close()
+
+	alphaList := fetch(t, url+"/api/entries?sort=alpha_asc", http.StatusOK)
+	if strings.Index(alphaList, `"ant"`) > strings.Index(alphaList, `"zebra"`) {
+		t.Fatalf("expected ant before zebra in alpha_asc: %s", alphaList)
+	}
+
 	stop()
 	if _, err := os.Stat(filepath.Join(flagDir, "wordweave.db")); err != nil {
 		t.Fatal(err)

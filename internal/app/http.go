@@ -54,7 +54,8 @@ func (a *App) createEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) showEntries(w http.ResponseWriter, r *http.Request) {
-	entries, err := a.listEntries(r.Context())
+	sortOrder := r.URL.Query().Get("sort")
+	entries, err := a.listEntries(r.Context(), sortOrder)
 	if err != nil {
 		internalError(w, err)
 		return
@@ -79,3 +80,38 @@ func (a *App) showEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, entry)
 }
+
+func (a *App) editEntry(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的词条编号。"})
+		return
+	}
+	var input struct {
+		Spelling   string `json:"spelling"`
+		Definition string `json:"definition"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "请输入有效的 JSON 词条。"})
+		return
+	}
+	entry, err := a.updateEntry(r.Context(), id, input.Spelling, input.Definition)
+	if errors.Is(err, errDuplicateEntry) {
+		writeJSON(w, http.StatusConflict, apiError{Error: "这个词条已收录。", ExistingEntry: &entry})
+		return
+	}
+	if errors.Is(err, errEmptySpelling) {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "请输入词条拼写。"})
+		return
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		writeJSON(w, http.StatusNotFound, apiError{Error: "找不到这个词条。"})
+		return
+	}
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, entry)
+}
+

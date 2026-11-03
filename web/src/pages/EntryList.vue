@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue'
 import { errorMessage, formatDate, listEntries, type Entry } from '../api'
 
+const sortOrder = ref('created_desc')
 const entries = ref<Entry[]>([])
 const loading = ref(true)
 const error = ref('')
@@ -10,7 +11,7 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    entries.value = await listEntries()
+    entries.value = await listEntries(sortOrder.value)
   } catch (err) {
     error.value = errorMessage(err)
   } finally {
@@ -50,7 +51,21 @@ onMounted(load)
       <h2>
         已收录 <span>{{ entries.length }} 个词条</span>
       </h2>
-      <span>最近添加在前</span>
+      <div class="sort-control">
+        <label for="sort-select" class="sort-label">排序：</label>
+        <select
+          id="sort-select"
+          v-model="sortOrder"
+          class="sort-select"
+          aria-label="词条列表排序"
+          @change="load"
+        >
+          <option value="created_desc">最近添加在前</option>
+          <option value="created_asc">最早添加在前</option>
+          <option value="alpha_asc">英文 A–Z</option>
+          <option value="alpha_desc">英文 Z–A</option>
+        </select>
+      </div>
     </div>
     <ul class="entry-list">
       <li v-for="entry in entries" :key="entry.id">
