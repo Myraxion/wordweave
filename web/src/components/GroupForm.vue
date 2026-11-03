@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ApiError, createGroup, errorMessage, getGroupTypes, listEntries, type Entry, type Group } from '../api'
+import { ApiError, createEntry, createGroup, errorMessage, getGroupTypes, listEntries, type Entry, type Group } from '../api'
 
 const props = defineProps<{ entry: Entry }>()
 const emit = defineEmits<{ saved: [group: Group]; cancel: [] }>()
@@ -16,6 +16,12 @@ const typesError = ref('')
 const saving = ref(false)
 const error = ref('')
 const existingGroup = ref<Group>()
+const addingEntry = ref(false)
+const newSpelling = ref('')
+const newDefinition = ref('')
+const entrySaving = ref(false)
+const entryError = ref('')
+const existingEntry = ref<Entry>()
 const candidates = computed(() => results.value.filter(member => member.id !== props.entry.id))
 let searchNumber = 0
 
@@ -48,6 +54,36 @@ function toggle(member: Entry) {
   else selected.value.splice(index, 1)
 }
 
+function selectEntry(member: Entry) {
+  if (member.id !== props.entry.id && !selected.value.some(value => value.id === member.id)) {
+    selected.value.push(member)
+  }
+  addingEntry.value = false
+  newSpelling.value = ''
+  newDefinition.value = ''
+  entryError.value = ''
+  existingEntry.value = undefined
+  void search()
+}
+
+async function addEntry() {
+  entryError.value = ''
+  existingEntry.value = undefined
+  if (!newSpelling.value.trim()) {
+    entryError.value = '请输入词条拼写。'
+    return
+  }
+  entrySaving.value = true
+  try {
+    selectEntry(await createEntry(newSpelling.value, newDefinition.value))
+  } catch (err) {
+    entryError.value = errorMessage(err)
+    if (err instanceof ApiError) existingEntry.value = err.body.existingEntry
+  } finally {
+    entrySaving.value = false
+  }
+}
+
 async function save() {
   error.value = ''
   existingGroup.value = undefined
@@ -71,7 +107,7 @@ watch(query, search, { immediate: true })
   <form class="form-card group-form" aria-label="建立关系组" @submit.prevent="save">
     <h2>建立关系组</h2>
     <p class="subtitle">选择已有词条，一起记录含义、用法或区别。</p>
-    <fieldset :disabled="saving">
+    <fieldset :disabled="saving || entrySaving">
       <legend>组成员（已选 {{ selected.length + 1 }} 个）</legend>
       <ul class="selected-members">
         <li><span lang="en">{{ entry.spelling }}</span><small>当前词条</small></li>
@@ -98,6 +134,27 @@ watch(query, search, { immediate: true })
           </label>
         </li>
       </ul>
+      <button v-if="!addingEntry" type="button" class="button secondary" @click="addingEntry = true; newSpelling = query">＋ 新增缺少的词条</button>
+      <section v-else aria-label="新增词条">
+        <h3>新增词条</h3>
+        <p class="field-hint">词条会立即保存，取消建组后仍可查找。</p>
+        <div class="field">
+          <label for="new-member-spelling">词条拼写 <span class="required">必填</span></label>
+          <input id="new-member-spelling" v-model="newSpelling" autocomplete="off" />
+        </div>
+        <div class="field">
+          <label for="new-member-definition">释义 <span class="optional">选填</span></label>
+          <textarea id="new-member-definition" v-model="newDefinition" rows="3"></textarea>
+        </div>
+        <div v-if="entryError" class="notice error" role="alert">
+          <p>{{ entryError }}</p>
+          <button v-if="existingEntry" type="button" class="text-button" @click="selectEntry(existingEntry)">选择已有词条：{{ existingEntry.spelling }}</button>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="button secondary" @click="addingEntry = false">取消新增</button>
+          <button type="button" class="button primary" @click="addEntry">{{ entrySaving ? '正在保存…' : '保存并选择词条' }}</button>
+        </div>
+      </section>
       <div class="field">
         <label for="group-type">关系类型 <span class="required">必填</span></label>
         <div v-if="typesError" class="notice error" role="alert">
@@ -121,8 +178,8 @@ watch(query, search, { immediate: true })
       </RouterLink>
     </div>
     <div class="form-actions">
-      <button class="button secondary" type="button" :disabled="saving" @click="emit('cancel')">取消建组</button>
-      <button class="button primary" type="submit" :disabled="saving || !type || selected.length === 0">
+      <button class="button secondary" type="button" :disabled="saving || entrySaving" @click="emit('cancel')">取消建组</button>
+      <button class="button primary" type="submit" :disabled="saving || entrySaving || !type || selected.length === 0">
         {{ saving ? '正在保存…' : '保存关系组' }}
       </button>
     </div>

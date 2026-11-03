@@ -28,7 +28,7 @@ $env:WORDWEAVE_DATA_DIR = 'D:\Notebooks\English'
 
 ## 关系组与对照阅读
 
-在词条详情点击「建立关系组」，搜索并勾选其他已有词条。切换搜索保留已选成员，当前词条始终包含在组中；选择一种关系类型，可填写多行纯文本说明，然后保存。至少有两个不同成员才能保存，取消建组不改变已有数据。
+在词条详情点击「建立关系组」，搜索并勾选其他已有词条。切换搜索保留已选成员，当前词条始终包含在组中；选择一种关系类型，可填写多行纯文本说明，然后保存。至少有两个不同成员才能保存，建组时可新增缺少的词条，保存后立即选中；重复拼写可选择已有词条。新增词条独立保存，取消建组后仍保留。
 
 固定类型依次为形音相似、近义、反义、词族、屈折变化、拼写变体、语义相关。详情按此顺序分区，同类型组最近创建在前，组内成员按英文 A–Z 忽略大小写排列。每组完整展示成员、当前释义及共享说明；点击成员继续阅读，点击组标题查看独立组详情。重叠组各自保留边界，同一批成员可按不同类型分别建组。
 
@@ -108,4 +108,4 @@ go test ./...
 
 ## 当前范围
 
-词条收录见 [issue #2](https://github.com/Myraxion/wordweave/issues/2)，搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)。本次关系组创建与对照阅读对应 [issue #5](https://github.com/Myraxion/wordweave/issues/5)，并补齐新增迁移前的 [issue #10](https://github.com/Myraxion/wordweave/issues/10) 升级保护。当前数据库版本为 2，词条与关系组分别由 `0001_entries.sql`、`0002_groups.sql` 建立。组编辑、建组过程中新收词、关系说明搜索、按类型浏览及删除由后续票据实现。
+词条收录见 [issue #2](https://github.com/Myraxion/wordweave/issues/2)，搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)。本次关系组创建与对照阅读对应 [issue #5](https://github.com/Myraxion/wordweave/issues/5)，并补齐新增迁移前的 [issue #10](https://github.com/Myraxion/wordweave/issues/10) 升级保护。当前数据库版本为 2，词条与关系组分别由 `0001_entries.sql`、`0002_groups.sql` 建立。组编辑、关系说明搜索、按类型浏览及删除由后续票据实现。

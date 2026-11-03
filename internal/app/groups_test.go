@@ -210,3 +210,29 @@ func TestEditedEntriesAppearInAllGroups(t *testing.T) {
 		t.Fatalf("group shows stale spelling, definition or sorting: %+v", got)
 	}
 }
+
+func TestCollectedEntrySurvivesCancelledAndFailedGroup(t *testing.T) {
+	s := startApp(t, t.TempDir())
+	origin := collect(t, s, "draw", "")
+	collected := collect(t, s, " drawn ", "")
+	var conflict struct {
+		ExistingEntry entry `json:"existingEntry"`
+	}
+	request(t, s, "POST", "/api/entries", `{"spelling":"DRAWN"}`, http.StatusConflict, &conflict)
+	if !reflect.DeepEqual(conflict.ExistingEntry, collected) {
+		t.Fatalf("duplicate does not identify collected entry: %+v", conflict)
+	}
+	request(t, s, "POST", groupsPath(origin.ID), groupBody(t, "屈折变化", "", []int64{collected.ID, 99999}), http.StatusBadRequest, nil)
+	var retained entry
+	request(t, s, "GET", "/api/entries/"+strconv.FormatInt(collected.ID, 10), "", http.StatusOK, &retained)
+	if !reflect.DeepEqual(retained, collected) {
+		t.Fatalf("collected entry was changed: %+v", retained)
+	}
+	for _, id := range []int64{origin.ID, collected.ID} {
+		var groups []group
+		request(t, s, "GET", groupsPath(id), "", http.StatusOK, &groups)
+		if len(groups) != 0 {
+			t.Fatalf("failed or cancelled group left data: %+v", groups)
+		}
+	}
+}
