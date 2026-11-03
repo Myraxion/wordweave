@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue'
-import { errorMessage, formatDate, listEntries, type Entry } from '../api'
+import { errorMessage, formatDate, search, type Entry, type Group } from '../api'
+import GroupCard from '../components/GroupCard.vue'
 
 const sortOrder = ref('created_desc')
 const query = ref('')
 let requestNumber = 0
 const entries = ref<Entry[]>([])
+const groups = ref<Group[]>([])
 const loading = ref(true)
 const error = ref('')
 
@@ -14,8 +16,11 @@ async function load() {
   loading.value = true
   error.value = ''
   try {
-    const result = await listEntries(sortOrder.value, query.value)
-    if (currentRequest === requestNumber) entries.value = result
+    const result = await search(sortOrder.value, query.value)
+    if (currentRequest === requestNumber) {
+      entries.value = result.entries
+      groups.value = result.groups
+    }
   } catch (err) {
     if (currentRequest === requestNumber) error.value = errorMessage(err)
   } finally {
@@ -40,18 +45,15 @@ watch(query, load)
     >
   </div>
   <div class="search-control">
-    <label for="entry-search">搜索词条</label>
-    <input id="entry-search" v-model="query" type="search" placeholder="搜索拼写或释义" />
+    <label for="entry-search">搜索词条与关系说明</label>
+    <input id="entry-search" v-model="query" type="search" placeholder="搜索拼写、释义或关系说明" />
   </div>
   <div v-if="error" class="notice error" role="alert">
     {{ error }} <button class="text-button" @click="load">重试</button>
   </div>
   <p v-else-if="loading" role="status" class="loading">正在翻开生词本…</p>
-  <section v-else-if="entries.length === 0 && query.trim()" class="empty-card">
-    <h2>没有找到匹配的词条</h2>
-    <p>试试其他拼写或释义。</p>
-  </section>
-  <section v-else-if="entries.length === 0" class="empty-card">
+  <template v-else>
+  <section v-if="entries.length === 0 && !query.trim()" class="empty-card">
     <div class="empty-symbol" aria-hidden="true">Aa<span>＋</span></div>
     <h2>从第一个新词开始</h2>
     <p>一个单词，或一句短语。<br />先记下来，释义可以慢慢补充。</p>
@@ -62,7 +64,7 @@ watch(query, load)
   <section v-else class="entry-card" aria-label="词条列表">
     <div class="list-heading">
       <h2>
-        已收录 <span>{{ entries.length }} 个词条</span>
+        {{ query.trim() ? '直接命中的词条' : '已收录' }} <span>{{ entries.length }} 个词条</span>
       </h2>
       <div class="sort-control">
         <label for="sort-select" class="sort-label">排序：</label>
@@ -96,5 +98,15 @@ watch(query, load)
         </RouterLink>
       </li>
     </ul>
+    <p v-if="entries.length === 0" class="loading">没有直接命中的词条。</p>
   </section>
+  <section v-if="query.trim()" class="detail-card search-groups">
+    <h2>说明命中的关系组 <span class="small-count">{{ groups.length }}</span></h2>
+    <p v-if="groups.length === 0" class="muted">没有匹配的关系说明。</p>
+    <div v-for="group in groups" :key="group.id" class="search-group">
+      <h3 class="relation-type">{{ group.type }}</h3>
+      <GroupCard :group="group" />
+    </div>
+  </section>
+  </template>
 </template>

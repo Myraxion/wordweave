@@ -54,6 +54,10 @@ export const updateEntry = (id: string | number, spelling: string, definition: s
   })
 
 export const getGroupTypes = () => request<string[]>('/group-types')
+export const search = (sort: string, query: string) =>
+  request<{ entries: Entry[]; groups: Group[] }>(`/search?${new URLSearchParams({ sort, q: query })}`)
+export const listGroupsByType = (type: string) =>
+  request<Group[]>(`/groups?${new URLSearchParams({ type })}`)
 export const listEntryGroups = (id: string | number) =>
   request<Group[]>('/entries/' + encodeURIComponent(id) + '/groups')
 export const getGroup = (id: string | number) =>

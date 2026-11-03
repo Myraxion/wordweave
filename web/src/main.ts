@@ -5,6 +5,7 @@ import EntryList from './pages/EntryList.vue'
 import EntryForm from './pages/EntryForm.vue'
 import EntryDetail from './pages/EntryDetail.vue'
 import GroupDetail from './pages/GroupDetail.vue'
+import RelationBrowse from './pages/RelationBrowse.vue'
 import './style.css'
 
 const router = createRouter({
@@ -14,6 +15,7 @@ const router = createRouter({
     { path: '/entries/new', component: EntryForm },
     { path: '/entries/:id', component: EntryDetail, props: true },
     { path: '/groups/:id', component: GroupDetail, props: true },
+    { path: '/relations', component: RelationBrowse },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
   scrollBehavior: () => ({ top: 0 }),

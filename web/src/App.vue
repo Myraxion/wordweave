@@ -13,6 +13,9 @@
         <RouterLink class="nav-link" to="/entries/new" active-class="selected">
           <span aria-hidden="true">＋</span> 收录词条
         </RouterLink>
+        <RouterLink class="nav-link" to="/relations" active-class="selected">
+          <span aria-hidden="true">◇</span> 关系类型浏览
+        </RouterLink>
       </nav>
       <div class="sidebar-note">
         <span class="status-dot"></span> 本机生词本<small

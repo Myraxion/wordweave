@@ -6,7 +6,38 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 )
+
+func (a *App) search(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	entries, err := a.listEntries(r.Context(), r.URL.Query().Get("sort"), query)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	groups := []Group{}
+	if query != "" {
+		groups, err = a.queryGroups(r.Context(), "instr(lower(g.note), lower(?)) > 0", query)
+		if err != nil {
+			internalError(w, err)
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, struct {
+		Entries []Entry `json:"entries"`
+		Groups  []Group `json:"groups"`
+	}{entries, groups})
+}
+
+func (a *App) browseGroups(w http.ResponseWriter, r *http.Request) {
+	groups, err := a.queryGroups(r.Context(), "g.type = ?", r.URL.Query().Get("type"))
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, groups)
+}
 
 func (a *App) editGroup(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)

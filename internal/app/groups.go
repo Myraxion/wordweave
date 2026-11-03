@@ -174,17 +174,17 @@ func (a *App) entryGroups(ctx context.Context, entryID int64) ([]Group, error) {
 	return a.queryGroups(ctx, "g.id IN (SELECT group_id FROM group_members WHERE entry_id = ?)", entryID)
 }
 
-// Only callers in this file supply the WHERE clause; all values are parameters.
+// Callers supply fixed WHERE clauses; all values are parameters.
 // One joined query returns a consistent view, including current entry definitions.
 // AUTOINCREMENT IDs track creation order without comparing variable-precision timestamps.
-func (a *App) queryGroups(ctx context.Context, where string, id int64) ([]Group, error) {
+func (a *App) queryGroups(ctx context.Context, where string, arg any) ([]Group, error) {
 	rows, err := a.db.QueryContext(ctx, `SELECT g.id, g.type, g.note, g.created_at,
 		e.id, e.spelling, e.definition, e.created_at
 		FROM relation_groups g
 		JOIN group_members m ON m.group_id = g.id
 		JOIN entries e ON e.id = m.entry_id
 		WHERE `+where+`
-		ORDER BY g.id DESC, e.spelling_key ASC, e.id ASC`, id)
+		ORDER BY g.id DESC, e.spelling_key ASC, e.id ASC`, arg)
 	if err != nil {
 		return nil, err
 	}

@@ -706,6 +706,10 @@ textarea {
 .search-control {
   margin-bottom: 20px;
 }
+.search-groups { margin-top: 24px; }
+.search-group + .search-group { margin-top: 22px; }
+.type-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 24px; }
+.type-buttons .selected { background: #246857; color: white; }
 .search-control label {
   display: block;
   font-size: 13px;
