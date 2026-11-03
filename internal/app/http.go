@@ -55,7 +55,7 @@ func (a *App) createEntry(w http.ResponseWriter, r *http.Request) {
 
 func (a *App) showEntries(w http.ResponseWriter, r *http.Request) {
 	sortOrder := r.URL.Query().Get("sort")
-	entries, err := a.listEntries(r.Context(), sortOrder)
+	entries, err := a.listEntries(r.Context(), sortOrder, r.URL.Query().Get("q"))
 	if err != nil {
 		internalError(w, err)
 		return
@@ -114,4 +114,3 @@ func (a *App) editEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, entry)
 }
-

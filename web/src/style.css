@@ -702,3 +702,13 @@ textarea {
     letter-spacing: 0;
   }
 }
+
+.search-control {
+  margin-bottom: 20px;
+}
+.search-control label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}

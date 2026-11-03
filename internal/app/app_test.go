@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -297,5 +299,32 @@ func TestBrowseEntriesSorted(t *testing.T) {
 	}
 }
 
-
-
+func TestSearchEntries(t *testing.T) {
+	s := startApp(t, t.TempDir())
+	for _, body := range []string{`{"spelling":"Apple Pie","definition":"苹果派 Fruit"}`, `{"spelling":"give up"}`, `{"spelling":"give it up","definition":"放弃"}`, `{"spelling":"100%_done","definition":"完成"}`, `{"spelling":"don't"}`} {
+		request(t, s, "POST", "/api/entries", body, http.StatusCreated, nil)
+	}
+	for _, tc := range []struct {
+		query string
+		want  []string
+	}{
+		{"APPLE PIE", []string{"Apple Pie"}}, {"pPlE", []string{"Apple Pie"}}, {"fruit", []string{"Apple Pie"}},
+		{"苹果", []string{"Apple Pie"}}, {"give up", []string{"give up"}}, {"give  up", []string{}},
+		{"%_", []string{"100%_done"}}, {"%", []string{"100%_done"}}, {"_", []string{"100%_done"}}, {"'", []string{"don't"}},
+		{"missing", []string{}}, {"  apple  ", []string{"Apple Pie"}},
+		{" ", []string{"100%_done", "Apple Pie", "don't", "give it up", "give up"}},
+		{"", []string{"100%_done", "Apple Pie", "don't", "give it up", "give up"}},
+	} {
+		t.Run(tc.query, func(t *testing.T) {
+			var got []entry
+			request(t, s, "GET", "/api/entries?sort=alpha_asc&q="+url.QueryEscape(tc.query), "", http.StatusOK, &got)
+			names := []string{}
+			for _, e := range got {
+				names = append(names, e.Spelling)
+			}
+			if !reflect.DeepEqual(names, tc.want) {
+				t.Fatalf("got %v, want %v", names, tc.want)
+			}
+		})
+	}
+}

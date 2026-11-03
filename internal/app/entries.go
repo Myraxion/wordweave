@@ -41,7 +41,7 @@ func (a *App) addEntry(ctx context.Context, spelling, definition string) (Entry,
 	return entry, err
 }
 
-func (a *App) listEntries(ctx context.Context, sortOrder string) ([]Entry, error) {
+func (a *App) listEntries(ctx context.Context, sortOrder, query string) ([]Entry, error) {
 	var orderBy string
 	switch sortOrder {
 	case "created_asc":
@@ -53,7 +53,9 @@ func (a *App) listEntries(ctx context.Context, sortOrder string) ([]Entry, error
 	default:
 		orderBy = "created_at DESC, id DESC"
 	}
-	rows, err := a.db.QueryContext(ctx, `SELECT id, spelling, definition, created_at FROM entries ORDER BY `+orderBy)
+	query = strings.TrimSpace(query)
+	rows, err := a.db.QueryContext(ctx, `SELECT id, spelling, definition, created_at FROM entries
+  WHERE instr(lower(spelling), lower(?)) > 0 OR instr(lower(definition), lower(?)) > 0 ORDER BY `+orderBy, query, query)
 	if err != nil {
 		return nil, err
 	}
@@ -102,4 +104,3 @@ func (a *App) updateEntry(ctx context.Context, id int64, spelling, definition st
 	).Scan(&updated.ID, &updated.Spelling, &updated.Definition, &updated.CreatedAt)
 	return updated, err
 }
-

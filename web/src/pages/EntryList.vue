@@ -1,24 +1,29 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { errorMessage, formatDate, listEntries, type Entry } from '../api'
 
 const sortOrder = ref('created_desc')
+const query = ref('')
+let requestNumber = 0
 const entries = ref<Entry[]>([])
 const loading = ref(true)
 const error = ref('')
 
 async function load() {
+  const currentRequest = ++requestNumber
   loading.value = true
   error.value = ''
   try {
-    entries.value = await listEntries(sortOrder.value)
+    const result = await listEntries(sortOrder.value, query.value)
+    if (currentRequest === requestNumber) entries.value = result
   } catch (err) {
-    error.value = errorMessage(err)
+    if (currentRequest === requestNumber) error.value = errorMessage(err)
   } finally {
-    loading.value = false
+    if (currentRequest === requestNumber) loading.value = false
   }
 }
 onMounted(load)
+watch(query, load)
 </script>
 
 <template>
@@ -34,10 +39,18 @@ onMounted(load)
       ><span aria-hidden="true">＋</span> 收录词条</RouterLink
     >
   </div>
+  <div class="search-control">
+    <label for="entry-search">搜索词条</label>
+    <input id="entry-search" v-model="query" type="search" placeholder="搜索拼写或释义" />
+  </div>
   <div v-if="error" class="notice error" role="alert">
     {{ error }} <button class="text-button" @click="load">重试</button>
   </div>
   <p v-else-if="loading" role="status" class="loading">正在翻开生词本…</p>
+  <section v-else-if="entries.length === 0 && query.trim()" class="empty-card">
+    <h2>没有找到匹配的词条</h2>
+    <p>试试其他拼写或释义。</p>
+  </section>
   <section v-else-if="entries.length === 0" class="empty-card">
     <div class="empty-symbol" aria-hidden="true">Aa<span>＋</span></div>
     <h2>从第一个新词开始</h2>

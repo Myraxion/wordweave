@@ -27,8 +27,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
-export const listEntries = (sort?: string) =>
-  request<Entry[]>(sort ? `/entries?sort=${encodeURIComponent(sort)}` : '/entries')
+export const listEntries = (sort: string, query: string) =>
+  request<Entry[]>(`/entries?${new URLSearchParams({ sort, q: query })}`)
 export const getEntry = (id: string | number) =>
   request<Entry>(`/entries/${encodeURIComponent(id)}`)
 export const createEntry = (spelling: string, definition: string) =>

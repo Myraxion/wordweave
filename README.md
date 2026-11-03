@@ -1,6 +1,6 @@
 # Wordweave · 生词本
 
-个人本机生词本。支持收录英文单词或短语、记录多行纯文本释义、浏览词条列表和详情。重复拼写忽略大小写，提示进入已有词条。数据保存在 SQLite 中，重启后继续使用。
+个人本机生词本。支持收录英文单词或短语、记录多行纯文本释义、浏览、搜索词条列表和详情。重复拼写忽略大小写，提示进入已有词条。数据保存在 SQLite 中，重启后继续使用。
 
 ## Windows 使用
 
@@ -71,13 +71,13 @@ go test ./...
 | 方法与路径 | 行为 |
 | --- | --- |
 | `POST /api/entries` | JSON `{ "spelling": "Apple", "definition": "苹果\n苹果树" }`；释义可省略 |
-| `GET /api/entries` | 词条数组，最近添加在前；空列表为 `[]` |
+| `GET /api/entries` | 词条数组，最近添加在前；可用 `q` 搜索拼写或释义，用 `sort` 指定排序；空列表为 `[]` |
 | `GET /api/entries/{id}` | 词条详情，不存在时为 404 |
 
 词条返回 `id`、`spelling`、`definition`、`createdAt`（UTC RFC 3339）。创建成功为 201；拼写为空为 400；重复为 409，响应包含 `error` 和 `existingEntry`，不会覆盖原词条。
 
 ## 当前范围
 
-本次实现对应 [issue #2](https://github.com/Myraxion/wordweave/issues/2)。编辑、搜索、关系组和删除由后续票据实现。
+本次实现对应 [issue #2](https://github.com/Myraxion/wordweave/issues/2)。词条搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)；关系组和删除由后续票据实现。
 
 启动时使用嵌入的 `0001_entries.sql` 初始化数据库，并在 `schema_migrations` 中记录版本；迁移与版本记录在同一事务中提交。当前支持新库初始化和同版本重启，数据库版本较新时拒绝启动。已有数据库升级前的一致性备份、失败升级验证等完整保护流程属于 T9（[issue #10](https://github.com/Myraxion/wordweave/issues/10)），需在发布下一版迁移前完成。
