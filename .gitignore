@@ -16,3 +16,9 @@ Thumbs.db
 .agents/skills/
 
 references/
+
+# Application build and runtime data
+web/node_modules/
+web/dist/
+bin/
+data/
