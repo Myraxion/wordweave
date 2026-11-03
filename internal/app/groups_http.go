@@ -1,10 +1,12 @@
 package app
 
 import (
+	"cmp"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -31,11 +33,18 @@ func (a *App) search(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) browseGroups(w http.ResponseWriter, r *http.Request) {
-	groups, err := a.queryGroups(r.Context(), "g.type = ?", r.URL.Query().Get("type"))
+	where := "1 = 1"
+	var args []any
+	if kind := r.URL.Query().Get("type"); kind != "" {
+		where = "g.type = ?"
+		args = append(args, kind)
+	}
+	groups, err := a.queryGroups(r.Context(), where, args...)
 	if err != nil {
 		internalError(w, err)
 		return
 	}
+	slices.SortFunc(groups, func(a, b Group) int { return cmp.Compare(b.ID, a.ID) })
 	writeJSON(w, http.StatusOK, groups)
 }
 

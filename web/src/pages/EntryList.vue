@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { errorMessage, formatDate, search, type Entry, type Group } from '../api'
+import DisplayModeSwitch from '../components/DisplayModeSwitch.vue'
 import GroupCard from '../components/GroupCard.vue'
+import StudyText from '../components/StudyText.vue'
+import { studyMode } from '../studyMode'
 
+const route = useRoute()
+const query = computed(() => typeof route.query.q === 'string' ? route.query.q.trim() : '')
 const sortOrder = ref('created_desc')
-const query = ref('')
 let requestNumber = 0
 const entries = ref<Entry[]>([])
 const groups = ref<Group[]>([])
@@ -28,53 +33,25 @@ async function load() {
   }
 }
 onMounted(load)
-watch(query, load)
 </script>
 
 <template>
-  <div class="page-heading">
-    <div>
-      <p class="eyebrow">YOUR WORD COLLECTION</p>
-      <h1>
-        全部词条<span class="count">{{ entries.length }}</span>
-      </h1>
-      <p class="subtitle">把遇见的新词留在这里，慢慢读懂，慢慢积累。</p>
+  <div class="browse-page">
+    <div class="page-heading">
+      <div>
+        <p class="eyebrow">YOUR WORD COLLECTION</p>
+        <h1>{{ query ? '搜索结果' : '全部词条' }}</h1>
+        <p v-if="query" class="subtitle search-summary">搜索“{{ query }}” <RouterLink class="inline-link" to="/">清除搜索</RouterLink></p>
+        <p v-else class="subtitle">收集词条，也留一点时间温习。</p>
+      </div>
+      <RouterLink class="button primary" to="/entries/new"><span aria-hidden="true">＋</span> 收录词条</RouterLink>
     </div>
-    <RouterLink class="button primary" to="/entries/new"
-      ><span aria-hidden="true">＋</span> 收录词条</RouterLink
-    >
-  </div>
-  <div class="search-control">
-    <label for="entry-search">搜索词条与关系说明</label>
-    <input id="entry-search" v-model="query" type="search" placeholder="搜索拼写、释义或关系说明" />
-  </div>
-  <div v-if="error" class="notice error" role="alert">
-    {{ error }} <button class="text-button" @click="load">重试</button>
-  </div>
-  <p v-else-if="loading" role="status" class="loading">正在翻开生词本…</p>
-  <template v-else>
-  <section v-if="entries.length === 0 && !query.trim()" class="empty-card">
-    <div class="empty-symbol" aria-hidden="true">Aa<span>＋</span></div>
-    <h2>从第一个新词开始</h2>
-    <p>一个单词，或一句短语。<br />先记下来，释义可以慢慢补充。</p>
-    <RouterLink class="button primary" to="/entries/new"
-      >收录第一个词条 <span aria-hidden="true">→</span></RouterLink
-    >
-  </section>
-  <section v-else class="entry-card" aria-label="词条列表">
-    <div class="list-heading">
-      <h2>
-        {{ query.trim() ? '直接命中的词条' : '已收录' }} <span>{{ entries.length }} 个词条</span>
-      </h2>
+
+    <div class="browse-toolbar">
+      <DisplayModeSwitch />
       <div class="sort-control">
-        <label for="sort-select" class="sort-label">排序：</label>
-        <select
-          id="sort-select"
-          v-model="sortOrder"
-          class="sort-select"
-          aria-label="词条列表排序"
-          @change="load"
-        >
+        <label for="sort-select" class="sort-label">排序</label>
+        <select id="sort-select" v-model="sortOrder" class="sort-select" @change="load">
           <option value="created_desc">最近添加在前</option>
           <option value="created_asc">最早添加在前</option>
           <option value="alpha_asc">英文 A–Z</option>
@@ -82,31 +59,48 @@ watch(query, load)
         </select>
       </div>
     </div>
-    <ul class="entry-list">
-      <li v-for="entry in entries" :key="entry.id">
-        <RouterLink :to="`/entries/${entry.id}`" class="entry-row">
-          <div class="entry-copy">
-            <h3 lang="en">{{ entry.spelling }}</h3>
-            <p :class="{ muted: !entry.definition }">
-              {{ entry.definition || '暂未填写释义' }}
-            </p>
-          </div>
-          <time :datetime="entry.createdAt">{{
-            formatDate(entry.createdAt)
-          }}</time
-          ><span class="row-arrow" aria-hidden="true">↗</span>
-        </RouterLink>
-      </li>
-    </ul>
-    <p v-if="entries.length === 0" class="loading">没有直接命中的词条。</p>
-  </section>
-  <section v-if="query.trim()" class="detail-card search-groups">
-    <h2>说明命中的关系组 <span class="small-count">{{ groups.length }}</span></h2>
-    <p v-if="groups.length === 0" class="muted">没有匹配的关系说明。</p>
-    <div v-for="group in groups" :key="group.id" class="search-group">
-      <h3 class="relation-type">{{ group.type }}</h3>
-      <GroupCard :group="group" />
+
+    <div v-if="error" class="notice error" role="alert">
+      {{ error }} <button class="text-button" @click="load">重试</button>
     </div>
-  </section>
-  </template>
+    <p v-else-if="loading" role="status" class="loading">正在翻开生词本…</p>
+    <template v-else>
+      <section v-if="entries.length === 0 && !query" class="empty-card">
+        <div class="empty-symbol" aria-hidden="true">Aa<span>＋</span></div>
+        <h2>从第一个新词开始</h2>
+        <p>一个单词，或一句短语。<br />先记下来，释义可以慢慢补充。</p>
+        <RouterLink class="button primary" to="/entries/new">收录第一个词条 <span aria-hidden="true">→</span></RouterLink>
+      </section>
+      <section v-else aria-label="词条列表">
+        <div class="results-heading">
+          <h2>{{ query ? '直接命中的词条' : '已收录' }} <span class="small-count">{{ entries.length }} 个词条</span></h2>
+        </div>
+        <ul class="entry-list compact-entry-list">
+          <li v-for="entry in entries" :key="entry.id" class="compact-entry-row">
+            <div class="entry-copy">
+              <h3 lang="en">
+                <StudyText v-if="studyMode === 'hide-spelling'" :text="entry.spelling" masked label="拼写" />
+                <RouterLink v-else :to="`/entries/${entry.id}`">{{ entry.spelling }}</RouterLink>
+              </h3>
+              <p :class="{ muted: !entry.definition.trim() }">
+                <StudyText :text="entry.definition.trim() ? entry.definition : '暂未填写释义'" :masked="studyMode === 'hide-definition' && !!entry.definition.trim()" label="释义" />
+              </p>
+            </div>
+            <div class="entry-meta">
+              <RouterLink :to="`/entries/${entry.id}`" class="detail-link" :aria-label="studyMode === 'hide-spelling' ? '查看词条详情' : '查看 ' + entry.spelling + ' 的详情'">详情 <span aria-hidden="true">↗</span></RouterLink>
+              <time :datetime="entry.createdAt">{{ formatDate(entry.createdAt) }}</time>
+            </div>
+          </li>
+        </ul>
+        <p v-if="entries.length === 0" class="browse-empty">没有直接命中的词条。</p>
+      </section>
+      <section v-if="query" class="search-groups" aria-label="说明命中的关系组">
+        <div class="results-heading"><h2>说明命中的关系组 <span class="small-count">{{ groups.length }} 组</span></h2></div>
+        <p v-if="groups.length === 0" class="browse-empty">没有匹配的关系说明。</p>
+        <div v-else class="group-grid">
+          <GroupCard v-for="group in groups" :key="group.id" :group="group" :mode="studyMode" compact />
+        </div>
+      </section>
+    </template>
+  </div>
 </template>

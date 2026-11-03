@@ -46,20 +46,18 @@ function saved(updated: Group) {
 </script>
 
 <template>
-  <RouterLink class="back-link" to="/">← 返回全部词条</RouterLink>
+  <RouterLink class="back-link" to="/relations">← 返回关系类型浏览</RouterLink>
   <div v-if="error" class="notice error" role="alert">{{ error }} <button class="text-button" @click="load">重试</button></div>
   <p v-else-if="loading" class="loading" role="status">正在读取关系组…</p>
   <template v-else-if="group">
     <div class="page-heading">
       <div><p class="eyebrow">READ TOGETHER</p><h1>{{ group.type }}</h1><p class="subtitle">点击成员，继续查看词条及其关系组。</p></div>
-    </div>
-    <GroupForm v-if="editing" :group="group" @saved="saved" @deleted="router.push('/')" @cancel="editing = false" />
-    <template v-else>
-      <div class="heading-actions">
+      <div v-if="!editing" class="heading-actions">
         <button class="button primary" type="button" @click="editing = true">编辑关系组</button>
         <button class="button secondary" type="button" :disabled="deleting" @click="remove">删除关系组</button>
       </div>
-      <GroupCard :group="group" />
-    </template>
+    </div>
+    <GroupForm v-if="editing" :group="group" @saved="saved" @deleted="router.push('/')" @cancel="editing = false" />
+    <GroupCard v-else :group="group" />
   </template>
 </template>

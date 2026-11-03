@@ -187,11 +187,10 @@ async function groupSaved() {
           {{ entry.definition || '暂未填写释义' }}
         </p>
       </section>
-      <section class="detail-card">
-        <h2>
-          关系组<span class="small-count">{{ groups.length }}</span
-          ><span class="section-line"></span>
-        </h2>
+      <section class="entry-relations" aria-label="词条所属关系组">
+        <div class="results-heading">
+          <h2>关系组 <span class="small-count">{{ groups.length }}</span></h2>
+        </div>
         <div v-if="!groups.length" class="group-empty">
           <span aria-hidden="true">○ — ○</span>
           <p>暂无关系组</p>
@@ -199,7 +198,9 @@ async function groupSaved() {
         </div>
         <section v-for="section in sections" :key="section.type" class="relation-section" :aria-label="section.type">
           <h3 class="relation-type">{{ section.type }} <span class="small-count">{{ section.groups.length }}</span></h3>
-          <GroupCard v-for="group in section.groups" :key="group.id" :group="group" :current-id="entry.id" />
+          <div class="group-grid">
+            <GroupCard v-for="group in section.groups" :key="group.id" :group="group" :current-id="entry.id" compact />
+          </div>
         </section>
       </section>
     </div>

@@ -39,6 +39,12 @@ func TestSearchAndBrowseGroups(t *testing.T) {
 		})
 	}
 	var groups []group
+	for _, path := range []string{"/api/groups", "/api/groups?type="} {
+		request(t, s, "GET", path, "", http.StatusOK, &groups)
+		if !reflect.DeepEqual(groups, []group{laterType, empty, second, first}) {
+			t.Fatalf("all groups at %s: %+v", path, groups)
+		}
+	}
 	request(t, s, "GET", "/api/groups?type="+url.QueryEscape("近义"), "", http.StatusOK, &groups)
 	if !reflect.DeepEqual(groups, []group{second, first}) {
 		t.Fatalf("groups: %+v", groups)
