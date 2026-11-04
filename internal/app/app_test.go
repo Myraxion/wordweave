@@ -19,6 +19,7 @@ type entry struct {
 	Spelling   string `json:"spelling"`
 	Definition string `json:"definition"`
 	CreatedAt  string `json:"createdAt"`
+	UpdatedAt  string `json:"updatedAt"`
 }
 
 // Every test gets a real, isolated database and uses only HTTP to observe it.

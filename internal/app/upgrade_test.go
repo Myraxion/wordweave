@@ -2,11 +2,13 @@ package app_test
 
 import (
 	"database/sql"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Myraxion/wordweave/internal/app"
 )
@@ -20,6 +22,21 @@ CREATE TABLE entries (
  definition TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
 );
 INSERT INTO entries VALUES (1, 'Legacy', 'legacy', '升级前' || char(10) || '原释义', '2026-11-01T00:00:00Z');
+`
+
+const legacyGroupSchema = `
+INSERT INTO schema_migrations(version) VALUES (2);
+CREATE TABLE relation_groups (
+ id INTEGER PRIMARY KEY AUTOINCREMENT, type TEXT NOT NULL, member_key TEXT NOT NULL,
+ note TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL, UNIQUE(type, member_key)
+);
+CREATE TABLE group_members (
+ group_id INTEGER NOT NULL REFERENCES relation_groups(id),
+ entry_id INTEGER NOT NULL REFERENCES entries(id), PRIMARY KEY(group_id, entry_id)
+);
+INSERT INTO entries VALUES (2, 'Other', 'other', '', '2026-11-02T00:00:00Z');
+INSERT INTO relation_groups VALUES (1, '近义', '1,2', '旧说明', '2026-11-02T00:00:00Z');
+INSERT INTO group_members VALUES (1, 1), (1, 2);
 `
 
 func fixtureDB(t *testing.T, dir, script string) *sql.DB {
@@ -194,7 +211,7 @@ func TestUpgradePreservesEntryAndBackup(t *testing.T) {
 	s := startApp(t, dir)
 	var got entry
 	request(t, s, "GET", "/api/entries/1", "", 200, &got)
-	want := entry{1, "Legacy", "升级前\n原释义", "2026-11-01T00:00:00Z"}
+	want := entry{ID: 1, Spelling: "Legacy", Definition: "升级前\n原释义", CreatedAt: "2026-11-01T00:00:00Z"}
 	if got != want {
 		t.Fatalf("upgrade changed entry: %+v", got)
 	}
@@ -223,4 +240,93 @@ func TestUpgradePreservesEntryAndBackup(t *testing.T) {
 		t.Fatalf("backup did not restore original entry: %+v", got)
 	}
 	db.Close()
+}
+
+func TestUpgradeKeepsModificationTimesUnknownUntilContentChanges(t *testing.T) {
+	dir := t.TempDir()
+	db := fixtureDB(t, dir, legacySchema+legacyGroupSchema)
+	s := startApp(t, dir)
+	// Check actual JSON null, including nested members, rather than a missing field.
+	var raw map[string]json.RawMessage
+	request(t, s, "GET", "/api/groups/1", "", 200, &raw)
+	if string(raw["updatedAt"]) != "null" {
+		t.Fatalf("legacy group updatedAt = %s, want null", raw["updatedAt"])
+	}
+	var members []map[string]json.RawMessage
+	if err := json.Unmarshal(raw["members"], &members); err != nil || len(members) != 2 {
+		t.Fatalf("legacy members: %s, error %v", raw["members"], err)
+	}
+	for _, member := range members {
+		if string(member["updatedAt"]) != "null" {
+			t.Fatalf("legacy member updatedAt = %s, want null", member["updatedAt"])
+		}
+	}
+
+	var unchanged entry
+	request(t, s, "PUT", "/api/entries/1", `{"spelling":" Legacy ","definition":"升级前\n原释义"}`, 200, &unchanged)
+	request(t, s, "PUT", "/api/groups/1", groupBody(t, "近义", "旧说明", []int64{2, 1}), 200, &raw)
+	if unchanged.UpdatedAt != "" || string(raw["updatedAt"]) != "null" {
+		t.Fatal("unchanged legacy saves must retain unknown modification times")
+	}
+	for _, table := range []string{"entries", "relation_groups"} {
+		var stamp sql.NullString
+		if err := db.QueryRow("SELECT updated_at FROM " + table + " WHERE id = 1").Scan(&stamp); err != nil || stamp.Valid {
+			t.Fatalf("%s: want database NULL, got %+v, error %v", table, stamp, err)
+		}
+	}
+
+	before := time.Now()
+	var edited entry
+	request(t, s, "PUT", "/api/entries/1", `{"spelling":"Legacy","definition":"新释义"}`, 200, &edited)
+	requireUpdatedSince(t, edited.UpdatedAt, before)
+	if edited.CreatedAt != unchanged.CreatedAt {
+		t.Fatal("legacy edit changed entry creation time")
+	}
+	request(t, s, "GET", "/api/groups/1", "", 200, &raw)
+	if string(raw["updatedAt"]) != "null" {
+		t.Fatal("member edit changed legacy group modification time")
+	}
+	before = time.Now()
+	var editedGroup group
+	request(t, s, "PUT", "/api/groups/1", groupBody(t, "近义", "新说明", []int64{1, 2}), 200, &editedGroup)
+	requireUpdatedSince(t, editedGroup.UpdatedAt, before)
+	if editedGroup.CreatedAt != "2026-11-02T00:00:00Z" {
+		t.Fatal("legacy edit changed group creation time")
+	}
+	var version int
+	if err := db.QueryRow("SELECT MAX(version) FROM schema_migrations").Scan(&version); err != nil || version != 3 {
+		t.Fatalf("upgrade version = %d, error %v", version, err)
+	}
+}
+
+func TestModificationTimeMigrationRollsBackOnFailure(t *testing.T) {
+	dir := t.TempDir()
+	db := fixtureDB(t, dir, legacySchema+legacyGroupSchema+`
+		CREATE TRIGGER fail_third BEFORE INSERT ON schema_migrations
+		WHEN NEW.version = 3 BEGIN SELECT RAISE(ABORT, 'controlled timestamp migration failure'); END;
+	`)
+	a, err := app.Open(dir)
+	if err == nil {
+		a.Close()
+		t.Fatal("failed timestamp migration must stop startup")
+	}
+	for _, table := range []string{"entries", "relation_groups"} {
+		var count int
+		if err := db.QueryRow("SELECT COUNT(*) FROM pragma_table_info(?) WHERE name = 'updated_at'", table).Scan(&count); err != nil || count != 0 {
+			t.Fatalf("partial timestamp migration on %s: count %d, error %v", table, count, err)
+		}
+	}
+	var version int
+	if err := db.QueryRow("SELECT MAX(version) FROM schema_migrations").Scan(&version); err != nil || version != 2 {
+		t.Fatalf("failed migration changed version: %d, error %v", version, err)
+	}
+	if _, err := db.Exec("DROP TRIGGER fail_third"); err != nil {
+		t.Fatal(err)
+	}
+	s := startApp(t, dir)
+	var got group
+	request(t, s, "GET", "/api/groups/1", "", 200, &got)
+	if got.Note != "旧说明" || len(got.Members) != 2 || got.UpdatedAt != "" {
+		t.Fatalf("retry lost legacy group: %+v", got)
+	}
 }

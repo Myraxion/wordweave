@@ -7,6 +7,7 @@ export interface Entry {
   spelling: string
   definition: string
   createdAt: string
+  updatedAt: string | null
 }
 
 export interface Group {
@@ -14,6 +15,7 @@ export interface Group {
   type: string
   note: string
   createdAt: string
+  updatedAt: string | null
   members: Entry[]
 }
 

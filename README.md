@@ -89,8 +89,6 @@ go test ./...
 
 `internal/app/upgrade_test.go` 用旧版数据库和受控失败验证启动结果，包括 WAL 一致性备份及恢复、脚本／版本记录／提交失败回滚、多项待迁移整体回滚、备份失败、无迁移启动和拒绝降级；通过 HTTP 确认升级及失败重试后仍可读取原词条。
 
-`tests/portable_test.go` 构建正式程序，将它单独放入临时目录，从其他工作目录启动，验证本地前端资源、重启及整体搬移、参数和环境变量指定的数据目录。测试不访问个人生词本。
-
 `tests/upgrade_test.go` 使用正式程序进程验证旧库升级、从备份恢复、失败后停止启动及重试读取原数据；覆盖迁移失败、备份失败和较新数据库拒绝启动。
 
 浏览器基本冒烟：空列表 → 收录带多行释义的短语 → 详情 → 返回列表 → 大小写重复添加 → 进入已有词条 → 仅拼写收词 → 刷新详情。
@@ -116,10 +114,12 @@ go test ./...
 | `PUT /api/groups/{id}` | 修改类型、说明及完整成员集合，冲突返回已有组 |
 | `DELETE /api/groups/{id}` | 删除关系组并保留所有词条 |
 
-词条返回 `id`、`spelling`、`definition`、`createdAt`（UTC RFC 3339）。创建成功为 201；拼写为空为 400；重复为 409，响应包含 `error` 和 `existingEntry`，不会覆盖原词条。
+词条返回 `id`、`spelling`、`definition`、`createdAt` 和 `updatedAt`（UTC RFC 3339）。创建成功为 201；拼写为空为 400；重复为 409，响应包含 `error` 和 `existingEntry`，不会覆盖原词条。
 
-关系组返回 `id`、`type`、`note`、`createdAt` 和 `members`（完整词条数组）。创建成功为 201，`Location` 指向组详情接口；无效类型、不足两个不同成员或引用不存在的成员为 400。重复为 409，响应包含 `error` 和完整的 `existingGroup`；非法或重复创建不会留下部分组数据。
+关系组返回 `id`、`type`、`note`、`createdAt`、`updatedAt` 和 `members`（完整词条数组）。创建成功为 201，`Location` 指向组详情接口；无效类型、不足两个不同成员或引用不存在的成员为 400。重复为 409，响应包含 `error` 和完整的 `existingGroup`；非法或重复创建不会留下部分组数据。
+
+`updatedAt` 由服务端维护：新记录等于 `createdAt`，词条拼写或释义、关系组类型或说明或成员集合实际变化时更新，原样保存不更新。删除词条导致保留组成员减少时更新该组时间；词条内容变化与关系组变化不互相推进修改时间。升级前已有记录返回 `null`，直到首次实际修改；界面日期展示与排序保持原有行为。完整规则见[功能需求](docs/product-requirements.md#54-词条与关系组的修改时间)。
 
 ## 当前范围
 
-词条收录见 [issue #2](https://github.com/Myraxion/wordweave/issues/2)，搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)，关系组创建见 [issue #5](https://github.com/Myraxion/wordweave/issues/5)，组编辑及删除见 [issue #7](https://github.com/Myraxion/wordweave/issues/7)，关系说明搜索与类型浏览见 [issue #8](https://github.com/Myraxion/wordweave/issues/8)，词条删除见 [issue #9](https://github.com/Myraxion/wordweave/issues/9)。当前数据库版本为 2，词条与关系组分别由 `0001_entries.sql`、`0002_groups.sql` 建立。
+词条收录见 [issue #2](https://github.com/Myraxion/wordweave/issues/2)，搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)，关系组创建见 [issue #5](https://github.com/Myraxion/wordweave/issues/5)，组编辑及删除见 [issue #7](https://github.com/Myraxion/wordweave/issues/7)，关系说明搜索与类型浏览见 [issue #8](https://github.com/Myraxion/wordweave/issues/8)，词条删除见 [issue #9](https://github.com/Myraxion/wordweave/issues/9)。当前数据库版本为 3，词条与关系组分别由 `0001_entries.sql`、`0002_groups.sql` 建立，`0003_updated_at.sql` 为两者增加可空的修改时间字段。

@@ -16,6 +16,7 @@ type group struct {
 	Type      string  `json:"type"`
 	Note      string  `json:"note"`
 	CreatedAt string  `json:"createdAt"`
+	UpdatedAt string  `json:"updatedAt"`
 	Members   []entry `json:"members"`
 }
 

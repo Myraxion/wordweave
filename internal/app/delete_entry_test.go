@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func TestDeleteEntryConflictIsAtomic(t *testing.T) {
@@ -51,11 +52,14 @@ func TestDeleteEntryUpdatesAllGroups(t *testing.T) {
 	if len(preview) != 2 {
 		t.Fatalf("preview: %+v", preview)
 	}
+	beforeDelete := time.Now()
 	request(t, s, "DELETE", path, "", http.StatusOK, nil)
 	request(t, s, "GET", path, "", http.StatusNotFound, nil)
 	request(t, s, "GET", "/api/groups/"+strconv.FormatInt(removed.ID, 10), "", http.StatusNotFound, nil)
 	var got group
 	request(t, s, "GET", "/api/groups/"+strconv.FormatInt(kept.ID, 10), "", http.StatusOK, &got)
+	requireUpdatedSince(t, got.UpdatedAt, beforeDelete)
+	kept.UpdatedAt = got.UpdatedAt
 	kept.Members = []entry{a, b}
 	if !reflect.DeepEqual(got, kept) {
 		t.Fatalf("remaining group: %+v", got)

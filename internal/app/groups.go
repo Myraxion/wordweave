@@ -17,6 +17,7 @@ type Group struct {
 	Type      string  `json:"type"`
 	Note      string  `json:"note"`
 	CreatedAt string  `json:"createdAt"`
+	UpdatedAt *string `json:"updatedAt"`
 	Members   []Entry `json:"members"`
 }
 
@@ -56,7 +57,10 @@ func (a *App) updateGroup(ctx context.Context, id int64, kind, note string, memb
 	if !errors.Is(err, sql.ErrNoRows) {
 		return Group{}, err
 	}
-	if _, err := tx.ExecContext(ctx, "UPDATE relation_groups SET type = ?, note = ?, member_key = ? WHERE id = ?", kind, note, key, id); err != nil {
+	if _, err := tx.ExecContext(ctx, `UPDATE relation_groups SET
+		updated_at = CASE WHEN type != ? OR note != ? OR member_key != ? THEN ? ELSE updated_at END,
+		type = ?, note = ?, member_key = ? WHERE id = ?`,
+		kind, note, key, time.Now().UTC().Format(time.RFC3339Nano), kind, note, key, id); err != nil {
 		return Group{}, err
 	}
 	if _, err := tx.ExecContext(ctx, "DELETE FROM group_members WHERE group_id = ?", id); err != nil {
@@ -122,9 +126,10 @@ func (a *App) addGroup(ctx context.Context, kind, note string, memberIDs []int64
 	}
 	defer tx.Rollback()
 	var id int64
-	err = tx.QueryRowContext(ctx, `INSERT INTO relation_groups (type, member_key, note, created_at)
-		VALUES (?, ?, ?, ?) ON CONFLICT(type, member_key) DO NOTHING RETURNING id`,
-		kind, key, note, time.Now().UTC().Format(time.RFC3339Nano)).Scan(&id)
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	err = tx.QueryRowContext(ctx, `INSERT INTO relation_groups (type, member_key, note, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?) ON CONFLICT(type, member_key) DO NOTHING RETURNING id`,
+		kind, key, note, now, now).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		if err := tx.QueryRowContext(ctx, "SELECT id FROM relation_groups WHERE type = ? AND member_key = ?", kind, key).Scan(&id); err != nil {
 			return Group{}, err
@@ -178,8 +183,8 @@ func (a *App) entryGroups(ctx context.Context, entryID int64) ([]Group, error) {
 // One joined query returns a consistent view, including current entry definitions.
 // AUTOINCREMENT IDs track creation order without comparing variable-precision timestamps.
 func (a *App) queryGroups(ctx context.Context, where string, args ...any) ([]Group, error) {
-	rows, err := a.db.QueryContext(ctx, `SELECT g.id, g.type, g.note, g.created_at,
-		e.id, e.spelling, e.definition, e.created_at
+	rows, err := a.db.QueryContext(ctx, `SELECT g.id, g.type, g.note, g.created_at, g.updated_at,
+		e.id, e.spelling, e.definition, e.created_at, e.updated_at
 		FROM relation_groups g
 		JOIN group_members m ON m.group_id = g.id
 		JOIN entries e ON e.id = m.entry_id
@@ -193,8 +198,8 @@ func (a *App) queryGroups(ctx context.Context, where string, args ...any) ([]Gro
 	for rows.Next() {
 		var group Group
 		var entry Entry
-		if err := rows.Scan(&group.ID, &group.Type, &group.Note, &group.CreatedAt,
-			&entry.ID, &entry.Spelling, &entry.Definition, &entry.CreatedAt); err != nil {
+		if err := rows.Scan(&group.ID, &group.Type, &group.Note, &group.CreatedAt, &group.UpdatedAt,
+			&entry.ID, &entry.Spelling, &entry.Definition, &entry.CreatedAt, &entry.UpdatedAt); err != nil {
 			return nil, err
 		}
 		if len(groups) == 0 || groups[len(groups)-1].ID != group.ID {

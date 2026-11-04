@@ -1,12 +1,17 @@
 package tests
 
 import (
+	"bufio"
 	"context"
 	"database/sql"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -119,4 +124,86 @@ func TestExecutableUpgrade(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Builds the shipping binary and runs it without a frontend server or source files.
+func buildExecutable(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.Abs("..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	exe := filepath.Join(t.TempDir(), "wordweave")
+	if runtime.GOOS == "windows" {
+		exe += ".exe"
+	}
+	build := exec.Command("go", "build", "-trimpath", "-ldflags=-s -w", "-o", exe, "./cmd/wordweave")
+	build.Dir = root
+	build.Env = append(os.Environ(), "CGO_ENABLED=0")
+	if output, err := build.CombinedOutput(); err != nil {
+		t.Fatalf("build: %v\n%s", err, output)
+	}
+	return exe
+}
+
+func launch(t *testing.T, exe, workingDir, envDir string, args ...string) (string, func()) {
+	t.Helper()
+	cmd := exec.Command(exe, append([]string{"-listen", "127.0.0.1:0"}, args...)...)
+	cmd.Dir = workingDir
+	// Do not inherit a user's data-directory setting during isolated smoke tests.
+	for _, value := range os.Environ() {
+		if !strings.HasPrefix(strings.ToUpper(value), "WORDWEAVE_DATA_DIR=") {
+			cmd.Env = append(cmd.Env, value)
+		}
+	}
+	cmd.Env = append(cmd.Env, "WORDWEAVE_DATA_DIR="+envDir)
+	cmd.Stderr = os.Stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatal(err)
+	}
+	stop := sync.OnceFunc(func() {
+		cmd.Process.Kill()
+		cmd.Wait()
+	})
+	t.Cleanup(stop)
+	ready := make(chan string, 1)
+	go func() {
+		scanner := bufio.NewScanner(stdout)
+		if scanner.Scan() {
+			ready <- strings.TrimPrefix(scanner.Text(), "Wordweave: ")
+		} else {
+			ready <- ""
+		}
+		for scanner.Scan() {
+		}
+	}()
+	select {
+	case url := <-ready:
+		if !strings.HasPrefix(url, "http://127.0.0.1:") {
+			t.Fatalf("program did not start on loopback: %q", url)
+		}
+		return url, stop
+	case <-time.After(15 * time.Second):
+		t.Fatal("program startup timed out")
+		return "", stop
+	}
+}
+
+func fetch(t *testing.T, url string, status int) string {
+	t.Helper()
+	client := &http.Client{Timeout: 5 * time.Second}
+	res, err := client.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	data, err := io.ReadAll(res.Body)
+	if err != nil || res.StatusCode != status {
+		t.Fatalf("GET %s: status %d, read %v, body %s", url, res.StatusCode, err, data)
+	}
+	return string(data)
 }

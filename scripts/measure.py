@@ -19,19 +19,20 @@ STAMP = '2026-01-01T00:00:00Z'
 
 def fixture(path):
     db = sqlite3.connect(path)
+    db.execute('CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)')
     for sql in sorted((ROOT / 'internal/app/migrations').glob('*.sql')):
         db.executescript(sql.read_text(encoding='utf-8'))
-    db.executescript('CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP); INSERT INTO schema_migrations(version) VALUES (1), (2);')
-    db.executemany('INSERT INTO entries(id, spelling, spelling_key, definition, created_at) VALUES (?, ?, ?, ?, ?)',
-        ((i, f'word{i:05}', f'word{i:05}', f'释义 {i:05} example definition for learning', STAMP) for i in range(1, 10001)))
+        db.execute('INSERT INTO schema_migrations(version) VALUES (?)', (int(sql.stem.split('_')[0]),))
+    db.executemany('INSERT INTO entries(id, spelling, spelling_key, definition, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+        ((i, f'word{i:05}', f'word{i:05}', f'释义 {i:05} example definition for learning', STAMP, STAMP) for i in range(1, 10001)))
     for i in range(1, 30001):
         n = 2 + (i % 9)
         start = (i - 1) % 10000
         step = 1 + (i - 1) // 10000
         members = sorted((start + j * step) % 10000 + 1 for j in range(n))
         key = ','.join(map(str, members))
-        db.execute('INSERT INTO relation_groups(id, type, member_key, note, created_at) VALUES (?, ?, ?, ?, ?)',
-            (i, TYPES[(i - 1) % 7], key, f'关系说明 {i:05} example comparison', STAMP))
+        db.execute('INSERT INTO relation_groups(id, type, member_key, note, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)',
+            (i, TYPES[(i - 1) % 7], key, f'关系说明 {i:05} example comparison', STAMP, STAMP))
         db.executemany('INSERT INTO group_members(group_id, entry_id) VALUES (?, ?)', ((i, m) for m in members))
     db.commit()
     print('fixture:', db.execute('SELECT count(*), avg(length(definition)) FROM entries').fetchone(),

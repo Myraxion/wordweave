@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // removeEntry checks all resulting groups and applies the deletion in one transaction.
@@ -70,6 +71,7 @@ func (a *App) removeEntry(ctx context.Context, id int64) (Group, error) {
 			return Group{}, err
 		}
 	}
+	now := time.Now().UTC().Format(time.RFC3339Nano)
 	for _, g := range groups {
 		if g.count < 2 {
 			if _, err = tx.ExecContext(ctx, "DELETE FROM group_members WHERE group_id = ?", g.id); err != nil {
@@ -82,7 +84,7 @@ func (a *App) removeEntry(ctx context.Context, id int64) (Group, error) {
 			if _, err = tx.ExecContext(ctx, "DELETE FROM group_members WHERE group_id = ? AND entry_id = ?", g.id, id); err != nil {
 				return Group{}, err
 			}
-			if _, err = tx.ExecContext(ctx, "UPDATE relation_groups SET member_key = ? WHERE id = ?", g.key, g.id); err != nil {
+			if _, err = tx.ExecContext(ctx, "UPDATE relation_groups SET member_key = ?, updated_at = ? WHERE id = ?", g.key, now, g.id); err != nil {
 				return Group{}, err
 			}
 		}
