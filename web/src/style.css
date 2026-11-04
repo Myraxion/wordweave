@@ -175,10 +175,15 @@ button.text-button {
   color: #819083;
   background: #fafbf8;
 }
-.local-badge {
-  font-size: 11px;
-  color: #7a897d;
+.notebook-totals {
+  font-size: 12px;
+  color: #65776a;
   white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.notebook-totals strong {
+  color: #253c35;
+  font-weight: 600;
 }
 main {
   width: 100%;
@@ -660,9 +665,9 @@ textarea {
   .topbar {
     padding: 10px 16px;
     min-height: auto;
-  }
-  .local-badge {
-    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
   main {
     padding: 30px 20px 45px;
@@ -720,6 +725,31 @@ textarea {
 .group-form {
   max-width: none;
   margin-bottom: 22px;
+}
+.group-actions {
+  flex-wrap: wrap;
+}
+.collection-form > .entry-collector {
+  margin-bottom: 32px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #edf0e8;
+}
+.entry-collector .form-actions {
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding-top: 0;
+  border-top: 0;
+}
+.entry-collector textarea {
+  min-height: 96px;
+}
+.collection-feedback {
+  margin-top: 16px;
+  font-size: 14px;
+  color: #246857;
+}
+.delete-group {
+  margin-right: auto;
 }
 .group-form fieldset {
   border: 0;
@@ -930,7 +960,6 @@ textarea {
   background: #246857;
   color: #fff;
 }
-.mode-hint,
 .results-caption {
   font-size: 12px;
   color: #839083;
@@ -1104,23 +1133,41 @@ textarea {
   overflow-wrap: anywhere;
 }
 .reveal-text {
-  font: inherit;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  vertical-align: top;
   line-height: inherit;
   color: inherit;
   background: #edf3eb;
   border-radius: 4px;
   padding: 1px 5px;
   max-width: 100%;
+  width: 100%;
+  height: calc(3lh + 4px);
   text-align: left;
+  border: 1px solid transparent;
+}
+.reveal-text.reveal-spelling {
+  height: calc(2lh + 4px);
+}
+.study-content {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.entry-copy p.masked-definition {
+  display: block;
+  overflow: visible;
 }
 .reveal-text.concealed {
-  font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
-  font-size: 12px;
-  line-height: 1.8;
-  color: #708670;
-  letter-spacing: 0;
-  padding: 2px 9px;
-  border: 1px dashed #cbd9c4;
+  border-color: #cbd9c4;
+  border-style: dashed;
+}
+.concealed .study-content {
+  visibility: hidden;
 }
 
 @media (max-width: 650px) {

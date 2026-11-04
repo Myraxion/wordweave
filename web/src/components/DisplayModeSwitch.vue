@@ -13,6 +13,5 @@ import { studyMode, studyModes } from '../studyMode'
         @click="studyMode = mode.value"
       >{{ mode.label }}</button>
     </div>
-    <span v-if="studyMode !== 'full'" class="mode-hint">点击遮挡处揭示，再点收回</span>
   </div>
 </template>

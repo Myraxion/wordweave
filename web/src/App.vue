@@ -1,11 +1,30 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { getStats, notebookRevision } from './api'
 
 const route = useRoute()
 const router = useRouter()
 const query = ref('')
 const browsing = computed(() => route.path === '/' || route.path === '/relations')
+const totals = ref<{ entries: number; groups: number }>()
+const statsError = ref(false)
+let statsRequest = 0
+
+async function refreshStats() {
+  const current = ++statsRequest
+  statsError.value = false
+  try {
+    const result = await getStats()
+    if (current === statsRequest) totals.value = result
+  } catch {
+    if (current === statsRequest) {
+      totals.value = undefined
+      statsError.value = true
+    }
+  }
+}
+watch([() => route.fullPath, notebookRevision], refreshStats, { immediate: true })
 
 watch(() => route.fullPath, () => {
   query.value = route.path === '/' && typeof route.query.q === 'string' ? route.query.q : ''
@@ -30,7 +49,7 @@ function submitSearch() {
           <span aria-hidden="true">▤</span> 全部词条
         </RouterLink>
         <RouterLink class="nav-link" to="/relations" active-class="selected">
-          <span aria-hidden="true">◇</span> 关系类型浏览
+          <span aria-hidden="true">◇</span> 关系浏览
         </RouterLink>
       </nav>
       <div class="sidebar-note">
@@ -47,7 +66,11 @@ function submitSearch() {
           <input id="global-search" v-model="query" name="q" type="search" placeholder="搜索拼写、释义或关系说明" />
           <button type="submit">搜索 <span aria-hidden="true">↵</span></button>
         </form>
-        <span class="local-badge">个人词汇收藏</span>
+        <div class="notebook-totals" aria-live="polite" aria-atomic="true">
+          <span v-if="totals">词条 <strong>{{ totals.entries }}</strong> · 关系组 <strong>{{ totals.groups }}</strong></span>
+          <button v-else-if="statsError" type="button" class="text-button" @click="refreshStats">统计暂不可用，重试</button>
+          <span v-else>正在统计…</span>
+        </div>
       </header>
       <main id="main" :class="{ 'browse-main': browsing }"><RouterView :key="$route.fullPath" /></main>
       <footer>WORDWEAVE <span>让遇见的词，成为自己的语言。</span></footer>

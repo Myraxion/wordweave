@@ -46,6 +46,7 @@ func Open(dataDir string) (*App, error) {
 	mux.HandleFunc("POST /api/entries/{id}/groups", a.createGroup)
 	mux.HandleFunc("GET /api/entries/{id}/groups", a.showEntryGroups)
 	mux.HandleFunc("GET /api/search", a.search)
+	mux.HandleFunc("GET /api/stats", a.showStats)
 	mux.HandleFunc("GET /api/groups", a.browseGroups)
 	mux.HandleFunc("GET /api/groups/{id}", a.showGroup)
 	mux.HandleFunc("PUT /api/groups/{id}", a.editGroup)

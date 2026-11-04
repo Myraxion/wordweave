@@ -1,3 +1,7 @@
+import { ref } from 'vue'
+
+export const notebookRevision = ref(0)
+
 export interface Entry {
   id: number
   spelling: string
@@ -33,8 +37,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (!response.ok) {
     throw new ApiError(response.status, await response.json())
   }
-  return response.json() as Promise<T>
+  const result = await response.json() as T
+  if (options?.method && options.method !== 'GET') notebookRevision.value++
+  return result
 }
+
+export const getStats = () => request<{ entries: number; groups: number }>('/stats')
 
 export const listEntries = (sort: string, query: string) =>
   request<Entry[]>(`/entries?${new URLSearchParams({ sort, q: query })}`)

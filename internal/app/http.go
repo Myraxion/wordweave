@@ -28,6 +28,21 @@ func internalError(w http.ResponseWriter, err error) {
 	writeJSON(w, http.StatusInternalServerError, apiError{Error: "暂时无法处理请求，请重试。"})
 }
 
+func (a *App) showStats(w http.ResponseWriter, r *http.Request) {
+	var totals struct {
+		Entries int `json:"entries"`
+		Groups  int `json:"groups"`
+	}
+	err := a.db.QueryRowContext(r.Context(), `SELECT
+		(SELECT COUNT(*) FROM entries),
+		(SELECT COUNT(*) FROM relation_groups)`).Scan(&totals.Entries, &totals.Groups)
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, totals)
+}
+
 func (a *App) createEntry(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Spelling   string `json:"spelling"`

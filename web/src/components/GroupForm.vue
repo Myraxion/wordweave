@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { ApiError, createEntry, createGroup, deleteGroup, errorMessage, getGroupTypes, listEntries, updateGroup, type Entry, type Group } from '../api'
+import { ApiError, createGroup, deleteGroup, errorMessage, getGroupTypes, listEntries, updateGroup, type Entry, type Group } from '../api'
+import EntryCollector from './EntryCollector.vue'
 
-const props = defineProps<{ entry?: Entry; group?: Group }>()
+const props = defineProps<{ entry?: Entry; group?: Group; initialType?: string; standalone?: boolean; collecting?: boolean }>()
 const emit = defineEmits<{ saved: [group: Group]; deleted: []; cancel: [] }>()
 const types = ref<string[]>([])
-const type = ref(props.group?.type || '')
+const type = ref(props.group?.type || props.initialType || '')
 const note = ref(props.group?.note || '')
 const query = ref('')
 const results = ref<Entry[]>([])
@@ -14,21 +15,22 @@ const loading = ref(false)
 const searchError = ref('')
 const typesError = ref('')
 const saving = ref(false)
+const deleting = ref(false)
+const busy = computed(() => saving.value || entrySaving.value || deleting.value)
 const error = ref('')
 const existingGroup = ref<Group>()
 const addingEntry = ref(false)
-const newSpelling = ref('')
-const newDefinition = ref('')
 const entrySaving = ref(false)
-const entryError = ref('')
-const existingEntry = ref<Entry>()
+const collectionDraft = ref(false)
 const candidates = computed(() => results.value.filter(member => member.id !== props.entry?.id))
+const memberCount = computed(() => selected.value.length + (props.entry ? 1 : 0))
 let searchNumber = 0
 
 async function loadTypes() {
   typesError.value = ''
   try {
     types.value = await getGroupTypes()
+    if (!types.value.includes(type.value)) type.value = ''
   } catch (err) {
     typesError.value = errorMessage(err)
   }
@@ -54,42 +56,35 @@ function toggle(member: Entry) {
   else selected.value.splice(index, 1)
 }
 
-function cancelEntry() {
-  addingEntry.value = false
-  newSpelling.value = ''
-  newDefinition.value = ''
-  entryError.value = ''
-  existingEntry.value = undefined
+function focusCollector() {
+  document.getElementById('new-member-spelling')?.focus()
 }
 
 function selectEntry(member: Entry) {
   if (member.id !== props.entry?.id && !selected.value.some(value => value.id === member.id)) {
     selected.value.push(member)
   }
-  cancelEntry()
+  addingEntry.value = false
   void search()
 }
 
-async function addEntry() {
-  entryError.value = ''
-  existingEntry.value = undefined
-  if (!newSpelling.value.trim()) {
-    entryError.value = '请输入词条拼写。'
-    return
-  }
-  entrySaving.value = true
+async function remove() {
+  if (!props.group || busy.value || !window.confirm('确定删除整个关系组吗？所有成员词条都会保留。')) return
+  error.value = ''
+  existingGroup.value = undefined
+  deleting.value = true
   try {
-    selectEntry(await createEntry(newSpelling.value, newDefinition.value))
+    await deleteGroup(props.group.id)
+    emit('deleted')
   } catch (err) {
-    entryError.value = errorMessage(err)
-    if (err instanceof ApiError) existingEntry.value = err.body.existingEntry
+    error.value = errorMessage(err)
   } finally {
-    entrySaving.value = false
+    deleting.value = false
   }
 }
 
 async function save() {
-  if (addingEntry.value) return
+  if (addingEntry.value || collectionDraft.value || (!props.group && memberCount.value < 2)) return
   error.value = ''
   existingGroup.value = undefined
   saving.value = true
@@ -104,7 +99,7 @@ async function save() {
     const ids = selected.value.map(member => member.id)
     const group = props.group
       ? await updateGroup(props.group.id, type.value, note.value, ids)
-      : await createGroup(props.entry!.id, type.value, note.value, ids)
+      : await createGroup(props.entry?.id ?? ids[0]!, type.value, note.value, ids)
     emit('saved', group)
   } catch (err) {
     error.value = errorMessage(err)
@@ -115,19 +110,16 @@ async function save() {
 }
 
 onMounted(loadTypes)
-watch(newSpelling, () => {
-  entryError.value = ''
-  existingEntry.value = undefined
-})
 watch(query, search, { immediate: true })
 </script>
 
 <template>
-  <form class="form-card group-form" :aria-label="group ? '编辑关系组' : '建立关系组'" @submit.prevent="save">
-    <h2>{{ group ? '编辑关系组' : '建立关系组' }}</h2>
+  <form class="form-card group-form" :class="{ 'collection-form': collecting }" :aria-label="collecting ? '收录词条与建立关系组' : group ? '编辑关系组' : '建立关系组'" @submit.prevent="save">
+    <EntryCollector v-if="collecting" :disabled="busy" @selected="selectEntry" @busy="entrySaving = $event" @draft="collectionDraft = $event" />
+    <component :is="standalone ? 'h1' : 'h2'" :id="collecting ? 'create-group-heading' : undefined">{{ group ? '编辑关系组' : '建立关系组' }}</component>
     <p class="subtitle">选择已有词条，一起记录含义、用法或区别。</p>
-    <fieldset :disabled="saving || entrySaving">
-      <legend>组成员（已选 {{ selected.length + (entry ? 1 : 0) }} 个）</legend>
+    <fieldset :disabled="busy">
+      <legend>组成员（已选 {{ memberCount }} 个）</legend>
       <ul class="selected-members">
         <li v-if="entry"><span lang="en">{{ entry.spelling }}</span><small>当前词条</small></li>
         <li v-for="member in selected" :key="member.id">
@@ -138,13 +130,13 @@ watch(query, search, { immediate: true })
       <div class="field">
         <label for="member-search">搜索并多选词条</label>
         <input id="member-search" v-model="query" type="search" placeholder="搜索拼写或释义" autocomplete="off" />
-        <p class="field-hint">{{ group ? '切换搜索会保留已选成员。至少保留两个成员。' : '当前词条始终在组内；切换搜索会保留已选成员。至少选择一个其他词条。' }}</p>
+        <p class="field-hint">{{ group ? '切换搜索会保留已选成员。至少保留两个成员。' : entry ? '当前词条始终在组内；切换搜索会保留已选成员。至少选择一个其他词条。' : '切换搜索会保留已选成员。至少选择两个词条。' }}</p>
       </div>
       <div v-if="searchError" class="notice error" role="alert">
         {{ searchError }} <button type="button" class="text-button" @click="search">重试搜索</button>
       </div>
       <p v-else-if="loading" role="status">正在搜索词条…</p>
-      <p v-else-if="!candidates.length" class="field-hint">没有其他匹配的词条。</p>
+      <p v-else-if="!candidates.length" class="field-hint">{{ entry ? '没有其他匹配的词条。' : '没有匹配的词条，可以新增缺少的词条。' }}</p>
       <ul v-else class="member-options" aria-label="可选词条">
         <li v-for="member in candidates" :key="member.id">
           <label>
@@ -153,27 +145,11 @@ watch(query, search, { immediate: true })
           </label>
         </li>
       </ul>
-      <button v-if="!addingEntry" type="button" class="button secondary" @click="addingEntry = true; newSpelling = query">＋ 新增缺少的词条</button>
-      <section v-else aria-label="新增词条">
-        <h3>新增词条</h3>
-        <p class="field-hint">词条会立即保存，取消建组后仍可查找。</p>
-        <div class="field">
-          <label for="new-member-spelling">词条拼写 <span class="required">必填</span></label>
-          <input id="new-member-spelling" v-model="newSpelling" autocomplete="off" @keydown.enter.prevent="addEntry" />
-        </div>
-        <div class="field">
-          <label for="new-member-definition">释义 <span class="optional">选填</span></label>
-          <textarea id="new-member-definition" v-model="newDefinition" rows="3"></textarea>
-        </div>
-        <div v-if="entryError" class="notice error" role="alert">
-          <p>{{ entryError }}</p>
-          <button v-if="existingEntry" type="button" class="text-button" @click="selectEntry(existingEntry)">选择已有词条：{{ existingEntry.spelling }}</button>
-        </div>
-        <div class="form-actions">
-          <button type="button" class="button secondary" @click="cancelEntry">取消新增</button>
-          <button type="button" class="button primary" @click="addEntry">{{ entrySaving ? '正在保存…' : '保存并选择词条' }}</button>
-        </div>
-      </section>
+      <button v-if="collecting" type="button" class="button secondary" @click="focusCollector">收录缺少的词条</button>
+      <template v-else>
+        <button v-if="!addingEntry" type="button" class="button secondary" @click="addingEntry = true">＋ 新增缺少的词条</button>
+        <EntryCollector v-else inline :initial-spelling="query" :disabled="busy" @selected="selectEntry" @busy="entrySaving = $event" @cancel="addingEntry = false" />
+      </template>
       <div class="field">
         <label for="group-type">关系类型 <span class="required">必填</span></label>
         <div v-if="typesError" class="notice error" role="alert">
@@ -193,12 +169,14 @@ watch(query, search, { immediate: true })
     <div v-if="error" class="notice error" role="alert">
       <p>{{ error }}</p>
       <RouterLink v-if="existingGroup" :to="'/groups/' + existingGroup.id">
-        查看已有组：{{ existingGroup.type }} · {{ existingGroup.members.map(member => member.spelling).join(' / ') }} →
+        编辑已有组：{{ existingGroup.type }} · {{ existingGroup.members.map(member => member.spelling).join(' / ') }} →
       </RouterLink>
     </div>
-    <div class="form-actions">
-      <button class="button secondary" type="button" :disabled="saving || entrySaving" @click="emit('cancel')">{{ group ? '取消编辑' : '取消建组' }}</button>
-      <button class="button primary" type="submit" :disabled="saving || entrySaving || addingEntry || !type || (!group && selected.length === 0)">
+    <p v-if="collectionDraft" class="field-hint" role="status">上方词条尚未保存，请先收录或清空输入，再保存关系组。</p>
+    <div class="form-actions group-actions">
+      <button v-if="group" class="button secondary delete-group" type="button" :disabled="busy" @click="remove">{{ deleting ? '正在删除…' : '删除关系组' }}</button>
+      <button class="button secondary" type="button" :disabled="busy" @click="emit('cancel')">{{ group ? '取消编辑' : '取消建组' }}</button>
+      <button class="button primary" type="submit" :disabled="busy || addingEntry || collectionDraft || !type || (!group && memberCount < 2)">
         {{ saving ? '正在保存…' : '保存关系组' }}
       </button>
     </div>

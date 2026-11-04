@@ -79,11 +79,11 @@ onMounted(load)
           <li v-for="entry in entries" :key="entry.id" class="compact-entry-row">
             <div class="entry-copy">
               <h3 lang="en">
-                <StudyText v-if="studyMode === 'hide-spelling'" :text="entry.spelling" masked label="拼写" />
+                <StudyText v-if="studyMode === 'hide-spelling'" :text="entry.spelling" masked label="拼写" kind="spelling" />
                 <RouterLink v-else :to="`/entries/${entry.id}`">{{ entry.spelling }}</RouterLink>
               </h3>
-              <p :class="{ muted: !entry.definition.trim() }">
-                <StudyText :text="entry.definition.trim() ? entry.definition : '暂未填写释义'" :masked="studyMode === 'hide-definition' && !!entry.definition.trim()" label="释义" />
+              <p :class="{ muted: !entry.definition.trim(), 'masked-definition': studyMode === 'hide-definition' && !!entry.definition.trim() }">
+                <StudyText :text="entry.definition.trim() ? entry.definition : '暂未填写释义'" :masked="studyMode === 'hide-definition' && !!entry.definition.trim()" label="释义" kind="definition" />
               </p>
             </div>
             <div class="entry-meta">
