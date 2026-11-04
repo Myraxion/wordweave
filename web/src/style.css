@@ -337,15 +337,6 @@ h1 {
   border: 1px solid #e2e7dc;
   border-radius: 10px;
 }
-.sort-control {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.sort-label {
-  font-size: 11px;
-  color: #7c8b80;
-}
 .sort-select {
   padding: 4px 10px;
   border-radius: 6px;
@@ -381,11 +372,7 @@ h1 {
   color: #768370;
   margin-top: 5px;
   white-space: pre-wrap;
-  overflow: hidden;
   overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 .muted {
   color: #a1a99c !important;
@@ -930,6 +917,12 @@ textarea {
 .browse-toolbar {
   margin-bottom: 22px;
 }
+.browse-options {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 .browse-toolbar .sort-select {
   min-height: 38px;
   font-size: 13px;
@@ -1032,6 +1025,11 @@ textarea {
 }
 .group-grid > .relation-card {
   margin: 0;
+}
+.group-grid.masonry-grid,
+.compact-entry-list.masonry-grid {
+  grid-auto-rows: 1px;
+  row-gap: 0;
 }
 .compact-group {
   background: #fff;

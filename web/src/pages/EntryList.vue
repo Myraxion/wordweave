@@ -4,12 +4,16 @@ import { useRoute } from 'vue-router'
 import { errorMessage, formatDate, search, type Entry, type Group } from '../api'
 import DisplayModeSwitch from '../components/DisplayModeSwitch.vue'
 import GroupCard from '../components/GroupCard.vue'
+import BrowseGrid from '../components/BrowseGrid.vue'
+import LayoutSwitch from '../components/LayoutSwitch.vue'
 import StudyText from '../components/StudyText.vue'
+import { useBrowseLayout } from '../browseLayout'
 import { studyMode } from '../studyMode'
 
 const route = useRoute()
 const query = computed(() => typeof route.query.q === 'string' ? route.query.q.trim() : '')
 const sortOrder = ref('created_desc')
+const layout = useBrowseLayout('wordweave.entry-layout')
 let requestNumber = 0
 const entries = ref<Entry[]>([])
 const groups = ref<Group[]>([])
@@ -49,8 +53,9 @@ onMounted(load)
 
     <div class="browse-toolbar">
       <DisplayModeSwitch />
-      <div class="sort-control">
-        <label for="sort-select" class="sort-label">排序</label>
+      <div class="browse-options">
+        <LayoutSwitch v-model="layout" label="词条布局" />
+        <label for="sort-select" class="sr-only">排序</label>
         <select id="sort-select" v-model="sortOrder" class="sort-select" @change="load">
           <option value="created_desc">最近添加在前</option>
           <option value="created_asc">最早添加在前</option>
@@ -75,7 +80,7 @@ onMounted(load)
         <div class="results-heading">
           <h2>{{ query ? '直接命中的词条' : '已收录' }} <span class="small-count">{{ entries.length }} 个词条</span></h2>
         </div>
-        <ul class="entry-list compact-entry-list">
+        <BrowseGrid as="ul" class="entry-list compact-entry-list" :items="entries" :layout="layout">
           <li v-for="entry in entries" :key="entry.id" class="compact-entry-row">
             <div class="entry-copy">
               <h3 lang="en">
@@ -91,15 +96,15 @@ onMounted(load)
               <time :datetime="entry.createdAt">{{ formatDate(entry.createdAt) }}</time>
             </div>
           </li>
-        </ul>
+        </BrowseGrid>
         <p v-if="entries.length === 0" class="browse-empty">没有直接命中的词条。</p>
       </section>
       <section v-if="query" class="search-groups" aria-label="说明命中的关系组">
         <div class="results-heading"><h2>说明命中的关系组 <span class="small-count">{{ groups.length }} 组</span></h2></div>
         <p v-if="groups.length === 0" class="browse-empty">没有匹配的关系说明。</p>
-        <div v-else class="group-grid">
+        <BrowseGrid v-else class="group-grid" :items="groups" :layout="layout">
           <GroupCard v-for="group in groups" :key="group.id" :group="group" :mode="studyMode" compact />
-        </div>
+        </BrowseGrid>
       </section>
     </template>
   </div>
