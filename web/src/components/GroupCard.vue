@@ -15,7 +15,7 @@ withDefaults(defineProps<{ group: Group; currentId?: number; mode?: StudyMode; c
     <div v-if="compact" class="group-heading">
       <h3>
         <RouterLink v-if="browse" :to="'/groups/' + group.id" class="group-edit-link" :aria-label="'编辑' + group.type + '关系组，' + group.members.length + '个词条'" title="编辑关系组">
-          <span class="relation-tag">{{ group.type }}</span><span class="member-count">{{ group.members.length }} 词</span>
+          <span class="relation-tag">{{ group.type }}</span><span class="member-count">{{ group.members.length }} 词</span><span class="group-edit-arrow" aria-hidden="true">↗</span>
         </RouterLink>
         <template v-else><span class="relation-tag">{{ group.type }}</span><span class="member-count">{{ group.members.length }} 词</span></template>
       </h3>

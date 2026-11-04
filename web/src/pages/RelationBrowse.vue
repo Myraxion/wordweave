@@ -74,9 +74,8 @@ onMounted(load)
       <RouterLink class="button primary" :to="{ path: '/groups/new', query: selected ? { type: selected } : {} }"><span aria-hidden="true">＋</span> 建立关系</RouterLink>
     </div>
     <div class="browse-toolbar">
-      <DisplayModeSwitch />
       <div class="browse-options">
-        <LayoutSwitch v-model="layout" label="关系组布局" />
+        <DisplayModeSwitch />
         <div class="type-filter">
           <label for="relation-type" class="sr-only">关系类型</label>
           <select id="relation-type" v-model="selected" class="sort-select" @change="changeFilters">
@@ -84,6 +83,9 @@ onMounted(load)
             <option v-for="type in types" :key="type" :value="type">{{ type }}</option>
           </select>
         </div>
+      </div>
+      <div class="browse-options">
+        <LayoutSwitch v-model="layout" label="关系组布局" />
         <label for="group-sort" class="sr-only">关系组排序</label>
         <select id="group-sort" v-model="sortOrder" class="sort-select" @change="changeFilters">
           <option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
