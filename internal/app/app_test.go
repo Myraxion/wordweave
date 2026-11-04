@@ -255,7 +255,7 @@ func TestBrowseEntriesSorted(t *testing.T) {
 	request(t, s, "POST", "/api/entries", `{"spelling":"Apple"}`, http.StatusCreated, &apple)
 	request(t, s, "POST", "/api/entries", `{"spelling":"cherry"}`, http.StatusCreated, &cherry)
 
-	// 1. Default (no sort parameter): newest created first
+	// 1. Newly collected entries also have the newest modification times.
 	var listDefault []entry
 	request(t, s, "GET", "/api/entries", "", http.StatusOK, &listDefault)
 	if len(listDefault) != 3 || listDefault[0].ID != cherry.ID || listDefault[1].ID != apple.ID || listDefault[2].ID != banana.ID {
@@ -297,6 +297,10 @@ func TestBrowseEntriesSorted(t *testing.T) {
 	request(t, s, "GET", "/api/entries?sort=created_desc", "", http.StatusOK, &listAfterEdit)
 	if len(listAfterEdit) != 3 || listAfterEdit[2].ID != banana.ID || listAfterEdit[2].Spelling != "banana split" {
 		t.Fatalf("edit should retain original creation order, got %+v", listAfterEdit)
+	}
+	request(t, s, "GET", "/api/entries", "", http.StatusOK, &listDefault)
+	if len(listDefault) != 3 || listDefault[0].ID != banana.ID {
+		t.Fatalf("edited entry should lead default modification order, got %+v", listDefault)
 	}
 }
 

@@ -68,8 +68,8 @@ export const deleteEntry = (id: string | number) =>
 export const getGroupTypes = () => request<string[]>('/group-types')
 export const search = (sort: string, query: string) =>
   request<{ entries: Entry[]; groups: Group[] }>(`/search?${new URLSearchParams({ sort, q: query })}`)
-export const listGroupsByType = (type: string) =>
-  request<Group[]>(`/groups?${new URLSearchParams({ type })}`)
+export const listGroupsByType = (type: string, sort: string) =>
+  request<Group[]>(`/groups?${new URLSearchParams({ type, sort })}`)
 export const listEntryGroups = (id: string | number) =>
   request<Group[]>('/entries/' + encodeURIComponent(id) + '/groups')
 export const getGroup = (id: string | number) =>
@@ -100,5 +100,17 @@ export function formatDate(value: string): string {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
+  }).format(new Date(value))
+}
+
+export function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
   }).format(new Date(value))
 }

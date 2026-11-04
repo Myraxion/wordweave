@@ -48,12 +48,17 @@ func (a *App) listEntries(ctx context.Context, sortOrder, query string) ([]Entry
 	switch sortOrder {
 	case "created_asc":
 		orderBy = "created_at ASC, id ASC"
+	case "created_desc":
+		orderBy = "created_at DESC, id DESC"
+	case "updated_asc":
+		orderBy = "rtrim(COALESCE(updated_at, created_at), 'Z') ASC, id ASC"
 	case "alpha_asc":
 		orderBy = "spelling_key ASC, id ASC"
 	case "alpha_desc":
 		orderBy = "spelling_key DESC, id DESC"
 	default:
-		orderBy = "created_at DESC, id DESC"
+		// Strip the UTC suffix so variable-length RFC3339Nano fractions sort chronologically.
+		orderBy = "rtrim(COALESCE(updated_at, created_at), 'Z') DESC, id DESC"
 	}
 	query = strings.TrimSpace(query)
 	rows, err := a.db.QueryContext(ctx, `SELECT id, spelling, definition, created_at, updated_at FROM entries

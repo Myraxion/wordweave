@@ -94,3 +94,64 @@ func TestGroupModificationTime(t *testing.T) {
 		}
 	}
 }
+
+func TestEntriesSortedByModificationTime(t *testing.T) {
+	dir := t.TempDir()
+	s := startApp(t, dir)
+	db := fixtureDB(t, dir, "")
+	// Same-second fractions and an unknown legacy timestamp must sort as actual instants.
+	for i, stamp := range []any{
+		"2020-01-02T00:00:00Z",
+		"2020-01-02T00:00:00.1Z",
+		"2020-01-02T00:00:00.11Z",
+		"2020-01-02T00:00:00.110000001Z",
+		"2020-01-02T00:00:00.11Z",
+		nil,
+	} {
+		created := "2020-01-01T00:00:00Z"
+		if stamp == nil {
+			created = "2020-01-02T00:00:00.105Z"
+		}
+		spelling := "sort-" + strconv.Itoa(i+1)
+		if _, err := db.Exec(`INSERT INTO entries (id, spelling, spelling_key, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?)`, i+1, spelling, spelling, created, stamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		name, sort string
+		want       []int64
+	}{
+		{"default", "", []int64{4, 5, 3, 6, 2, 1}},
+		{"unknown", "unknown", []int64{4, 5, 3, 6, 2, 1}},
+		{"updated_desc", "updated_desc", []int64{4, 5, 3, 6, 2, 1}},
+		{"updated_asc", "updated_asc", []int64{1, 2, 6, 3, 5, 4}},
+		{"created_desc", "created_desc", []int64{6, 5, 4, 3, 2, 1}},
+		{"created_asc", "created_asc", []int64{1, 2, 3, 4, 5, 6}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, endpoint := range []string{"/api/entries?", "/api/search?q=sort-&"} {
+				var entries []entry
+				if endpoint == "/api/entries?" {
+					request(t, s, "GET", endpoint+"sort="+tc.sort, "", http.StatusOK, &entries)
+				} else {
+					var result struct {
+						Entries []entry `json:"entries"`
+					}
+					request(t, s, "GET", endpoint+"sort="+tc.sort, "", http.StatusOK, &result)
+					entries = result.Entries
+				}
+				var ids []int64
+				for _, e := range entries {
+					ids = append(ids, e.ID)
+					if e.ID == 6 && e.UpdatedAt != "" {
+						t.Fatal("sorting must not fill the unknown legacy modification time")
+					}
+				}
+				if !reflect.DeepEqual(ids, tc.want) {
+					t.Fatalf("%s: got IDs %v, want %v", endpoint, ids, tc.want)
+				}
+			}
+		})
+	}
+}

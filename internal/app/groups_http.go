@@ -44,7 +44,27 @@ func (a *App) browseGroups(w http.ResponseWriter, r *http.Request) {
 		internalError(w, err)
 		return
 	}
-	slices.SortFunc(groups, func(a, b Group) int { return cmp.Compare(b.ID, a.ID) })
+	sortOrder := r.URL.Query().Get("sort")
+	byCreated := sortOrder == "created_asc" || sortOrder == "created_desc"
+	ascending := sortOrder == "created_asc" || sortOrder == "updated_asc"
+	groupTime := func(group Group) string {
+		stamp := group.CreatedAt
+		if !byCreated && group.UpdatedAt != nil {
+			stamp = *group.UpdatedAt
+		}
+		// UTC RFC3339Nano strings sort chronologically without their variable-position Z suffix.
+		return strings.TrimSuffix(stamp, "Z")
+	}
+	slices.SortFunc(groups, func(a, b Group) int {
+		order := cmp.Compare(groupTime(a), groupTime(b))
+		if order == 0 {
+			order = cmp.Compare(a.ID, b.ID)
+		}
+		if !ascending {
+			order = -order
+		}
+		return order
+	})
 	writeJSON(w, http.StatusOK, groups)
 }
 

@@ -998,9 +998,24 @@ textarea {
   align-items: flex-end;
   gap: 8px;
 }
-.entry-meta time {
+.entry-meta time,
+.group-modified-date {
   font-size: 10px;
-  color: #99a191;
+  color: #65765e;
+  white-space: nowrap;
+}
+.masked-entry-heading {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.masked-entry-heading > .study-text {
+  flex: 1;
+  min-width: 0;
+}
+.masked-entry-heading > .member-detail {
+  color: #476a50;
+  padding: 6px;
 }
 .detail-link,
 .inline-link {
@@ -1051,6 +1066,17 @@ textarea {
   justify-content: flex-start;
   font-weight: 500;
 }
+.group-edit-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.group-edit-link:hover {
+  text-decoration: underline;
+}
+.group-edit-link .member-count {
+  color: #65765e;
+}
 .relation-tag {
   background: #edf3eb;
   color: #246857;
@@ -1100,6 +1126,10 @@ textarea {
   font-size: 13px;
   flex-shrink: 0;
   padding: 2px;
+}
+.browse-group .member-detail {
+  color: #476a50;
+  padding: 6px;
 }
 .compact-group .definition {
   margin-top: 1px;
@@ -1197,8 +1227,5 @@ textarea {
   .compact-entry-row,
   .compact-group {
     padding: 12px 14px;
-  }
-  .entry-meta time {
-    display: none;
   }
 }

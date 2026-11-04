@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
-import { errorMessage, formatDate, search, type Entry, type Group } from '../api'
+import { errorMessage, formatDate, formatDateTime, search, type Entry, type Group } from '../api'
 import DisplayModeSwitch from '../components/DisplayModeSwitch.vue'
 import GroupCard from '../components/GroupCard.vue'
 import BrowseGrid from '../components/BrowseGrid.vue'
@@ -12,7 +12,7 @@ import { studyMode } from '../studyMode'
 
 const route = useRoute()
 const query = computed(() => typeof route.query.q === 'string' ? route.query.q.trim() : '')
-const sortOrder = ref('created_desc')
+const sortOrder = ref('updated_desc')
 const layout = useBrowseLayout('wordweave.entry-layout')
 let requestNumber = 0
 const entries = ref<Entry[]>([])
@@ -57,6 +57,8 @@ onMounted(load)
         <LayoutSwitch v-model="layout" label="词条布局" />
         <label for="sort-select" class="sr-only">排序</label>
         <select id="sort-select" v-model="sortOrder" class="sort-select" @change="load">
+          <option value="updated_desc">最近修改在前</option>
+          <option value="updated_asc">最早修改在前</option>
           <option value="created_desc">最近添加在前</option>
           <option value="created_asc">最早添加在前</option>
           <option value="alpha_asc">英文 A–Z</option>
@@ -83,17 +85,17 @@ onMounted(load)
         <BrowseGrid as="ul" class="entry-list compact-entry-list" :items="entries" :layout="layout">
           <li v-for="entry in entries" :key="entry.id" class="compact-entry-row">
             <div class="entry-copy">
-              <h3 lang="en">
+              <h3 lang="en" :class="{ 'masked-entry-heading': studyMode === 'hide-spelling' }">
                 <StudyText v-if="studyMode === 'hide-spelling'" :text="entry.spelling" masked label="拼写" kind="spelling" />
                 <RouterLink v-else :to="`/entries/${entry.id}`">{{ entry.spelling }}</RouterLink>
+                <RouterLink v-if="studyMode === 'hide-spelling'" :to="`/entries/${entry.id}`" class="member-detail" aria-label="查看词条详情"><span aria-hidden="true">↗</span></RouterLink>
               </h3>
               <p :class="{ muted: !entry.definition.trim(), 'masked-definition': studyMode === 'hide-definition' && !!entry.definition.trim() }">
                 <StudyText :text="entry.definition.trim() ? entry.definition : '暂未填写释义'" :masked="studyMode === 'hide-definition' && !!entry.definition.trim()" label="释义" kind="definition" />
               </p>
             </div>
             <div class="entry-meta">
-              <RouterLink :to="`/entries/${entry.id}`" class="detail-link" :aria-label="studyMode === 'hide-spelling' ? '查看词条详情' : '查看 ' + entry.spelling + ' 的详情'">详情 <span aria-hidden="true">↗</span></RouterLink>
-              <time :datetime="entry.createdAt">{{ formatDate(entry.createdAt) }}</time>
+              <time :datetime="entry.updatedAt ?? entry.createdAt" :title="'添加时间：' + formatDateTime(entry.createdAt)" :aria-label="'修改时间：' + formatDate(entry.updatedAt ?? entry.createdAt) + '；添加时间：' + formatDateTime(entry.createdAt)">{{ formatDate(entry.updatedAt ?? entry.createdAt) }}</time>
             </div>
           </li>
         </BrowseGrid>
@@ -103,7 +105,7 @@ onMounted(load)
         <div class="results-heading"><h2>说明命中的关系组 <span class="small-count">{{ groups.length }} 组</span></h2></div>
         <p v-if="groups.length === 0" class="browse-empty">没有匹配的关系说明。</p>
         <BrowseGrid v-else class="group-grid" :items="groups" :layout="layout">
-          <GroupCard v-for="group in groups" :key="group.id" :group="group" :mode="studyMode" compact />
+          <GroupCard v-for="group in groups" :key="group.id" :group="group" :mode="studyMode" compact browse />
         </BrowseGrid>
       </section>
     </template>
