@@ -4,7 +4,7 @@ import { useRoute } from 'vue-router'
 import { errorMessage, formatDate, formatDateTime, search, type Entry, type Group } from '../api'
 import DisplayModeSwitch from '../components/DisplayModeSwitch.vue'
 import GroupCard from '../components/GroupCard.vue'
-import BrowseGrid from '../components/BrowseGrid.vue'
+import DateGrid from '../components/DateGrid.vue'
 import LayoutSwitch from '../components/LayoutSwitch.vue'
 import StudyText from '../components/StudyText.vue'
 import { useBrowseLayout } from '../browseLayout'
@@ -82,8 +82,8 @@ onMounted(load)
         <div class="results-heading">
           <h2>{{ query ? '直接命中的词条' : '已收录' }} <span class="small-count">{{ entries.length }} 个词条</span></h2>
         </div>
-        <BrowseGrid as="ul" class="entry-list compact-entry-list" :items="entries" :layout="layout">
-          <li v-for="entry in entries" :key="entry.id" class="compact-entry-row">
+        <DateGrid :items="entries" :layout="layout" :sort="sortOrder" kind="entry" v-slot="{ item: entry, grouped }">
+          <li class="compact-entry-row">
             <div class="entry-copy">
               <h3 lang="en" :class="{ 'masked-entry-heading': studyMode === 'hide-spelling' }">
                 <StudyText v-if="studyMode === 'hide-spelling'" :text="entry.spelling" masked label="拼写" kind="spelling" />
@@ -94,19 +94,19 @@ onMounted(load)
                 <StudyText :text="entry.definition.trim() ? entry.definition : '暂未填写释义'" :masked="studyMode === 'hide-definition' && !!entry.definition.trim()" label="释义" kind="definition" />
               </p>
             </div>
-            <div class="entry-meta">
+            <div v-if="!grouped" class="entry-meta">
               <time :datetime="entry.updatedAt ?? entry.createdAt" :title="'添加时间：' + formatDateTime(entry.createdAt)" :aria-label="'修改时间：' + formatDate(entry.updatedAt ?? entry.createdAt) + '；添加时间：' + formatDateTime(entry.createdAt)">{{ formatDate(entry.updatedAt ?? entry.createdAt) }}</time>
             </div>
           </li>
-        </BrowseGrid>
+        </DateGrid>
         <p v-if="entries.length === 0" class="browse-empty">没有直接命中的词条。</p>
       </section>
       <section v-if="query" class="search-groups" aria-label="说明命中的关系组">
         <div class="results-heading"><h2>说明命中的关系组 <span class="small-count">{{ groups.length }} 组</span></h2></div>
         <p v-if="groups.length === 0" class="browse-empty">没有匹配的关系说明。</p>
-        <BrowseGrid v-else class="group-grid" :items="groups" :layout="layout">
-          <GroupCard v-for="group in groups" :key="group.id" :group="group" :mode="studyMode" compact browse />
-        </BrowseGrid>
+        <DateGrid v-else :items="groups" :layout="layout" :sort="sortOrder" kind="group" sort-items v-slot="{ item: group, grouped }">
+          <GroupCard :group="group" :mode="studyMode" :hide-date="grouped" compact browse />
+        </DateGrid>
       </section>
     </template>
   </div>

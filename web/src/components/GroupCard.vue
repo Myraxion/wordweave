@@ -3,7 +3,7 @@ import { formatDate, formatDateTime, type Group } from '../api'
 import type { StudyMode } from '../studyMode'
 import StudyText from './StudyText.vue'
 
-withDefaults(defineProps<{ group: Group; currentId?: number; mode?: StudyMode; compact?: boolean; browse?: boolean }>(), {
+withDefaults(defineProps<{ group: Group; currentId?: number; mode?: StudyMode; compact?: boolean; browse?: boolean; hideDate?: boolean }>(), {
   mode: 'full',
   compact: false,
   browse: false,
@@ -19,8 +19,8 @@ withDefaults(defineProps<{ group: Group; currentId?: number; mode?: StudyMode; c
         </RouterLink>
         <template v-else><span class="relation-tag">{{ group.type }}</span><span class="member-count">{{ group.members.length }} 词</span></template>
       </h3>
-      <time v-if="browse" class="group-modified-date" :datetime="group.updatedAt ?? group.createdAt" :title="'创建时间：' + formatDateTime(group.createdAt)" :aria-label="'修改时间：' + formatDate(group.updatedAt ?? group.createdAt) + '；创建时间：' + formatDateTime(group.createdAt)">{{ formatDate(group.updatedAt ?? group.createdAt) }}</time>
-      <RouterLink v-else :to="'/groups/' + group.id" class="detail-link" aria-label="编辑关系组">编辑组 <span aria-hidden="true">↗</span></RouterLink>
+      <time v-if="browse && !hideDate" class="group-modified-date" :datetime="group.updatedAt ?? group.createdAt" :title="'创建时间：' + formatDateTime(group.createdAt)" :aria-label="'修改时间：' + formatDate(group.updatedAt ?? group.createdAt) + '；创建时间：' + formatDateTime(group.createdAt)">{{ formatDate(group.updatedAt ?? group.createdAt) }}</time>
+      <RouterLink v-if="!browse" :to="'/groups/' + group.id" class="detail-link" aria-label="编辑关系组">编辑组 <span aria-hidden="true">↗</span></RouterLink>
     </div>
     <h3 v-else class="group-title">
       <RouterLink :to="'/groups/' + group.id">

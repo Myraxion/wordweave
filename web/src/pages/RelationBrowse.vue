@@ -3,7 +3,7 @@ import { onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { errorMessage, getGroupTypes, listGroupsByType, type Group } from '../api'
 import DisplayModeSwitch from '../components/DisplayModeSwitch.vue'
-import BrowseGrid from '../components/BrowseGrid.vue'
+import DateGrid from '../components/DateGrid.vue'
 import GroupCard from '../components/GroupCard.vue'
 import LayoutSwitch from '../components/LayoutSwitch.vue'
 import { useBrowseLayout } from '../browseLayout'
@@ -99,9 +99,9 @@ onMounted(load)
         <h2>{{ selected || '全部关系组' }} <span class="small-count">{{ groups.length }} 组</span></h2>
       </div>
       <p v-if="!groups.length" class="browse-empty">{{ selected ? '这个类型还没有关系组，点击“建立关系”开始整理。' : '还没有关系组，点击“建立关系”开始整理。' }}</p>
-      <BrowseGrid v-else class="group-grid" :items="groups" :layout="layout">
-        <GroupCard v-for="group in groups" :key="group.id" :group="group" :mode="studyMode" compact browse />
-      </BrowseGrid>
+      <DateGrid v-else :items="groups" :layout="layout" :sort="sortOrder" kind="group" v-slot="{ item: group, grouped }">
+        <GroupCard :group="group" :mode="studyMode" :hide-date="grouped" compact browse />
+      </DateGrid>
     </section>
   </div>
 </template>
