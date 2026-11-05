@@ -7,7 +7,7 @@
     "dev": "vite --host 127.0.0.1",
     "typecheck": "vue-tsc --noEmit",
     "build": "npm run typecheck && vite build",
-    "test": "node --test timeline.test.mjs"
+    "test": "node --test timeline.test.mjs readability.test.mjs"
   },
   "dependencies": {
     "vue": "3.5.44",

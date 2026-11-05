@@ -383,6 +383,12 @@ h1 {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.entry-copy p:not(.masked-definition) {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
 .muted {
   color: var(--text-secondary) !important;
 }
@@ -1205,6 +1211,10 @@ textarea {
 }
 
 @media (max-width: 650px) {
+  .compact-group .group-members li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
   main.browse-main {
     padding: 20px 16px 36px;
   }
