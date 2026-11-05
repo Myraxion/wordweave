@@ -54,7 +54,7 @@ async function save() {
   <section class="entry-collector" aria-labelledby="collect-entry-heading">
     <h2 id="collect-entry-heading">{{ inline ? '新增缺少的词条' : '收录词条' }}</h2>
     <p class="field-hint">{{ inline ? '词条会独立保存，取消建组或编辑后仍保留。' : '词条会独立保存，并加入待建关系组；不建立关系也可以。' }}</p>
-    <p v-if="saved && !inline" class="collection-feedback" role="status">已选择 {{ saved.spelling }}，可继续收词或在下方建立关系组。</p>
+    <p v-if="saved && !inline" class="collection-feedback" role="status">已选择 {{ saved.spelling }}，可继续收词或建立关系组。</p>
     <fieldset :disabled="disabled || saving">
       <div class="field">
         <label for="new-member-spelling">词条拼写 <span class="required">必填</span></label>

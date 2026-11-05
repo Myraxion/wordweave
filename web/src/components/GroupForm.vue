@@ -24,6 +24,13 @@ const entrySaving = ref(false)
 const collectionDraft = ref(false)
 const candidates = computed(() => results.value.filter(member => member.id !== props.entry?.id))
 const memberCount = computed(() => selected.value.length + (props.entry ? 1 : 0))
+const saveHint = computed(() => {
+  if (addingEntry.value) return '请先完成或取消新增词条。'
+  if (collectionDraft.value) return '请先收录或清空未保存的词条。'
+  if (!props.group && memberCount.value < 2) return '请至少选择两个词条。'
+  if (!type.value) return '请选择关系类型。'
+  return ''
+})
 let searchNumber = 0
 
 async function loadTypes() {
@@ -116,69 +123,71 @@ watch(query, search, { immediate: true })
 <template>
   <form class="form-card group-form" :class="{ 'collection-form': collecting }" :aria-label="collecting ? '收录词条与建立关系组' : group ? '编辑关系组' : '建立关系组'" @submit.prevent="save">
     <EntryCollector v-if="collecting" :disabled="busy" @selected="selectEntry" @busy="entrySaving = $event" @draft="collectionDraft = $event" />
-    <component :is="standalone ? 'h1' : 'h2'" :id="collecting ? 'create-group-heading' : undefined">{{ group ? '编辑关系组' : '建立关系组' }}</component>
-    <p class="subtitle">选择已有词条，一起记录含义、用法或区别。</p>
-    <fieldset :disabled="busy">
-      <legend>组成员（已选 {{ memberCount }} 个）</legend>
-      <ul class="selected-members">
-        <li v-if="entry"><span lang="en">{{ entry.spelling }}</span><small>当前词条</small></li>
-        <li v-for="member in selected" :key="member.id">
-          <span lang="en">{{ member.spelling }}</span>
-          <button type="button" class="text-button" :aria-label="'取消选择 ' + member.spelling" @click="toggle(member)">×</button>
-        </li>
-      </ul>
-      <div class="field">
-        <label for="member-search">搜索并多选词条</label>
-        <input id="member-search" v-model="query" type="search" placeholder="搜索拼写或释义" autocomplete="off" />
-        <p class="field-hint">{{ group ? '切换搜索会保留已选成员。至少保留两个成员。' : entry ? '当前词条始终在组内；切换搜索会保留已选成员。至少选择一个其他词条。' : '切换搜索会保留已选成员。至少选择两个词条。' }}</p>
-      </div>
-      <div v-if="searchError" class="notice error" role="alert">
-        {{ searchError }} <button type="button" class="text-button" @click="search">重试搜索</button>
-      </div>
-      <p v-else-if="loading" role="status">正在搜索词条…</p>
-      <p v-else-if="!candidates.length" class="field-hint">{{ entry ? '没有其他匹配的词条。' : '没有匹配的词条，可以新增缺少的词条。' }}</p>
-      <ul v-else class="member-options" aria-label="可选词条">
-        <li v-for="member in candidates" :key="member.id">
-          <label>
-            <input type="checkbox" :checked="selected.some(value => value.id === member.id)" @change="toggle(member)" />
-            <span><strong lang="en">{{ member.spelling }}</strong><small>{{ member.definition || '暂未填写释义' }}</small></span>
-          </label>
-        </li>
-      </ul>
-      <button v-if="collecting" type="button" class="button secondary" @click="focusCollector">收录缺少的词条</button>
-      <template v-else>
-        <button v-if="!addingEntry" type="button" class="button secondary" @click="addingEntry = true">＋ 新增缺少的词条</button>
-        <EntryCollector v-else inline :initial-spelling="query" :disabled="busy" @selected="selectEntry" @busy="entrySaving = $event" @cancel="addingEntry = false" />
-      </template>
-      <div class="field">
-        <label for="group-type">关系类型 <span class="required">必填</span></label>
-        <div v-if="typesError" class="notice error" role="alert">
-          {{ typesError }} <button type="button" class="text-button" @click="loadTypes">重试类型</button>
+    <div class="group-preparation">
+      <component :is="standalone ? 'h1' : 'h2'" :id="collecting ? 'create-group-heading' : undefined">{{ group ? '编辑关系组' : '建立关系组' }}</component>
+      <p class="subtitle">选择已有词条，一起记录含义、用法或区别。</p>
+      <fieldset :disabled="busy">
+        <legend>组成员（已选 {{ memberCount }} 个）</legend>
+        <ul class="selected-members">
+          <li v-if="entry"><span lang="en">{{ entry.spelling }}</span><small>当前词条</small></li>
+          <li v-for="member in selected" :key="member.id">
+            <span lang="en">{{ member.spelling }}</span>
+            <button type="button" class="text-button" :aria-label="'取消选择 ' + member.spelling" @click="toggle(member)">×</button>
+          </li>
+        </ul>
+        <div class="field">
+          <label for="member-search">搜索并多选词条</label>
+          <input id="member-search" v-model="query" type="search" placeholder="搜索拼写或释义" autocomplete="off" />
+          <p class="field-hint">{{ group ? '切换搜索会保留已选成员。至少保留两个成员。' : entry ? '当前词条始终在组内；切换搜索会保留已选成员。至少选择一个其他词条。' : '切换搜索会保留已选成员。至少选择两个词条。' }}</p>
         </div>
-        <select id="group-type" v-model="type" required>
-          <option disabled value="">请选择一种关系类型</option>
-          <option v-for="kind in types" :key="kind" :value="kind">{{ kind }}</option>
-        </select>
+        <div v-if="searchError" class="notice error" role="alert">
+          {{ searchError }} <button type="button" class="text-button" @click="search">重试搜索</button>
+        </div>
+        <p v-else-if="loading" role="status">正在搜索词条…</p>
+        <p v-else-if="!candidates.length" class="field-hint">{{ entry ? '没有其他匹配的词条。' : '没有匹配的词条，可以新增缺少的词条。' }}</p>
+        <ul v-else class="member-options" aria-label="可选词条">
+          <li v-for="member in candidates" :key="member.id">
+            <label>
+              <input type="checkbox" :checked="selected.some(value => value.id === member.id)" @change="toggle(member)" />
+              <span><strong lang="en">{{ member.spelling }}</strong><small>{{ member.definition || '暂未填写释义' }}</small></span>
+            </label>
+          </li>
+        </ul>
+        <button v-if="collecting" type="button" class="button secondary" @click="focusCollector">收录缺少的词条</button>
+        <template v-else>
+          <button v-if="!addingEntry" type="button" class="button secondary" @click="addingEntry = true">＋ 新增缺少的词条</button>
+          <EntryCollector v-else inline :initial-spelling="query" :disabled="busy" @selected="selectEntry" @busy="entrySaving = $event" @cancel="addingEntry = false" />
+        </template>
+        <div class="field relation-fields">
+          <label for="group-type">关系类型 <span class="required">必填</span></label>
+          <div v-if="typesError" class="notice error" role="alert">
+            {{ typesError }} <button type="button" class="text-button" @click="loadTypes">重试类型</button>
+          </div>
+          <select id="group-type" v-model="type" required>
+            <option disabled value="">请选择一种关系类型</option>
+            <option v-for="kind in types" :key="kind" :value="kind">{{ kind }}</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="group-note">关系说明 <span class="optional">选填</span></label>
+          <textarea id="group-note" v-model="note" rows="5" placeholder="写下这一组词的含义、用法或区别…"></textarea>
+          <p class="field-hint">支持多行纯文本；所有成员共享这一份说明。</p>
+        </div>
+      </fieldset>
+      <div v-if="error" class="notice error" role="alert">
+        <p>{{ error }}</p>
+        <RouterLink v-if="existingGroup" :to="'/groups/' + existingGroup.id">
+          编辑已有组：{{ existingGroup.type }} · {{ existingGroup.members.map(member => member.spelling).join(' / ') }} →
+        </RouterLink>
       </div>
-      <div class="field">
-        <label for="group-note">关系说明 <span class="optional">选填</span></label>
-        <textarea id="group-note" v-model="note" rows="5" placeholder="写下这一组词的含义、用法或区别…"></textarea>
-        <p class="field-hint">支持多行纯文本；所有成员共享这一份说明。</p>
+      <div class="form-actions group-actions">
+        <button v-if="group" class="button secondary delete-group" type="button" :disabled="busy" @click="remove">{{ deleting ? '正在删除…' : '删除关系组' }}</button>
+        <button class="button secondary" type="button" :disabled="busy" @click="emit('cancel')">{{ group ? '取消编辑' : '取消建组' }}</button>
+        <span v-if="saveHint && !busy" class="field-hint save-hint">{{ saveHint }}</span>
+        <button class="button primary" type="submit" :disabled="busy || !!saveHint">
+          {{ saving ? '正在保存…' : '保存关系组' }}
+        </button>
       </div>
-    </fieldset>
-    <div v-if="error" class="notice error" role="alert">
-      <p>{{ error }}</p>
-      <RouterLink v-if="existingGroup" :to="'/groups/' + existingGroup.id">
-        编辑已有组：{{ existingGroup.type }} · {{ existingGroup.members.map(member => member.spelling).join(' / ') }} →
-      </RouterLink>
-    </div>
-    <p v-if="collectionDraft" class="field-hint" role="status">上方词条尚未保存，请先收录或清空输入，再保存关系组。</p>
-    <div class="form-actions group-actions">
-      <button v-if="group" class="button secondary delete-group" type="button" :disabled="busy" @click="remove">{{ deleting ? '正在删除…' : '删除关系组' }}</button>
-      <button class="button secondary" type="button" :disabled="busy" @click="emit('cancel')">{{ group ? '取消编辑' : '取消建组' }}</button>
-      <button class="button primary" type="submit" :disabled="busy || addingEntry || collectionDraft || !type || (!group && memberCount < 2)">
-        {{ saving ? '正在保存…' : '保存关系组' }}
-      </button>
     </div>
   </form>
 </template>

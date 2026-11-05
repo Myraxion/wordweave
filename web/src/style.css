@@ -1272,3 +1272,30 @@ textarea {
 .timeline-date { font-size: 20px; }
 .timeline-heading .small-count { line-height: 1.5; font-weight: 400; }
 .timeline-heading::after { content: ''; position: absolute; left: -16px; top: 12px; width: 8px; height: 8px; border-radius: 50%; background: #246857; }
+
+/* Collection and group preparation share a task order at every width. */
+.collection-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px;
+}
+.collection-form > .entry-collector {
+  margin: 0;
+}
+.group-preparation { min-width: 0; }
+.relation-fields { margin-top: 32px; }
+.member-options small {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.save-hint { margin: 0; }
+@media (min-width: 1100px) {
+  .collection-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .collection-form > .entry-collector {
+    padding: 0 32px 0 0;
+    border-bottom: 0;
+    border-right: 1px solid var(--divider);
+  }
+}
