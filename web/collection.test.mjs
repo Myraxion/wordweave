@@ -190,3 +190,58 @@ test('candidate list has an entry point and keyboard selection mode', async () =
     assert.equal(await page.getByRole('button', { name: '收录缺少的词条' }).evaluate(el => el === document.activeElement), true)
   } finally { await browser?.close(); server.kill() }
 })
+
+test('collection draft protects navigation and local clearing', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5183', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5183')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage()
+    await page.route('**/api/**', route => route.fulfill({ json: new URL(route.request().url()).pathname === '/api/stats' ? { entries: 0, groups: 0 } : [] }))
+    await page.goto('http://127.0.0.1:5183/entries/new')
+    const input = page.getByLabel('词条拼写')
+    await input.fill('draft')
+    let dialogs = 0
+    page.on('dialog', dialog => { dialogs++; void dialog.dismiss() })
+    await page.getByRole('button', { name: '清空输入' }).click()
+    assert.equal(dialogs, 1)
+    assert.equal(await input.inputValue(), 'draft')
+    await page.getByRole('link', { name: /关系浏览/ }).first().click()
+    assert.equal(dialogs, 2)
+    assert.match(page.url(), /entries\/new/)
+    await input.fill('')
+    await page.getByRole('link', { name: /关系浏览/ }).first().click()
+    await page.waitForURL('**/relations')
+    assert.equal(dialogs, 2)
+  } finally { await browser?.close(); server.kill() }
+})
+
+test('entry editing protects changes and restores keyboard focus', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5184', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5184')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage()
+    await page.route('**/api/**', route => {
+      const path = new URL(route.request().url()).pathname
+      return route.fulfill({ json: path === '/api/stats' ? { entries: 1, groups: 0 } : path === '/api/entries/1' ? { id: 1, spelling: 'apple', definition: 'fruit', createdAt: '2026-01-01T00:00:00Z' } : [] })
+    })
+    await page.goto('http://127.0.0.1:5184/entries/1')
+    const edit = page.getByRole('button', { name: /编辑词条/ })
+    await edit.click()
+    const spelling = page.locator('#spelling')
+    assert.equal(await spelling.evaluate(el => document.activeElement === el), true)
+    await spelling.fill('pear')
+    let dialogs = 0
+    page.on('dialog', dialog => { dialogs++; void dialog.dismiss() })
+    await page.getByRole('button', { name: '取消', exact: true }).click()
+    assert.equal(dialogs, 1)
+    assert.equal(await spelling.inputValue(), 'pear')
+    await spelling.fill('apple')
+    await page.getByRole('button', { name: '取消', exact: true }).click()
+    assert.equal(dialogs, 1)
+    assert.equal(await edit.evaluate(el => document.activeElement === el), true)
+  } finally { await browser?.close(); server.kill() }
+})

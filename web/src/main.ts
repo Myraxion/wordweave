@@ -7,6 +7,7 @@ import EntryDetail from './pages/EntryDetail.vue'
 import GroupEdit from './pages/GroupEdit.vue'
 import RelationBrowse from './pages/RelationBrowse.vue'
 import './style.css'
+import { confirmDiscard, hasUnsavedChanges, isSaving } from './leaveProtection'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -20,6 +21,17 @@ const router = createRouter({
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
   scrollBehavior: to => to.path === '/groups/new' ? { el: '#create-group-heading', top: 24 } : { top: 0 },
+})
+
+router.beforeEach(() => {
+  if (isSaving()) {
+    window.dispatchEvent(new Event('save-navigation-blocked'))
+    return false
+  }
+  return !hasUnsavedChanges() || confirmDiscard()
+})
+window.addEventListener('beforeunload', event => {
+  if (hasUnsavedChanges() || isSaving()) { event.preventDefault(); event.returnValue = '' }
 })
 
 createApp(App).use(router).mount('#app')

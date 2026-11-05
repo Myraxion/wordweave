@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { confirmDiscard } from '../leaveProtection'
 import { ApiError, createEntry, errorMessage, type Entry } from '../api'
 
 const props = defineProps<{ disabled?: boolean; inline?: boolean; initialSpelling?: string }>()
@@ -11,7 +12,7 @@ const error = ref('')
 const existing = ref<Entry>()
 const saved = ref<Entry>()
 const spellingInput = ref<HTMLInputElement>()
-const hasDraft = computed(() => !!(spelling.value.trim() || definition.value.trim()))
+const hasDraft = computed(() => !!(spelling.value || definition.value))
 watch(hasDraft, value => emit('draft', value), { immediate: true })
 watch(spelling, () => { error.value = ''; existing.value = undefined })
 
@@ -20,6 +21,12 @@ function clear() {
   definition.value = ''
   error.value = ''
   existing.value = undefined
+}
+
+function discard() {
+  if (hasDraft.value && !confirmDiscard()) return
+  if (props.inline) emit('cancel')
+  else clear()
 }
 
 function select(entry: Entry) {
@@ -69,8 +76,8 @@ async function save() {
         <button v-if="existing" type="button" class="text-button" @click="select(existing)">选择已有词条：{{ existing.spelling }}</button>
       </div>
       <div class="form-actions">
-        <button v-if="inline" type="button" class="button secondary" @click="emit('cancel')">取消新增</button>
-        <button v-else type="button" class="button secondary" :disabled="!hasDraft" @click="clear">清空输入</button>
+        <button v-if="inline" type="button" class="button secondary" @click="discard">取消新增</button>
+        <button v-else type="button" class="button secondary" :disabled="!hasDraft" @click="discard">清空输入</button>
         <button type="button" class="button primary" @click="save">{{ saving ? '正在收录…' : '收录词条' }}</button>
       </div>
     </fieldset>

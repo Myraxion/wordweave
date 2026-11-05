@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ApiError, createGroup, deleteGroup, errorMessage, getGroupTypes, listEntries, updateGroup, type Entry, type Group } from '../api'
+import { confirmDiscard, useLeaveProtection } from '../leaveProtection'
 import EntryCollector from './EntryCollector.vue'
 
 const props = defineProps<{ entry?: Entry; group?: Group; initialType?: string; standalone?: boolean; collecting?: boolean }>()
 const emit = defineEmits<{ saved: [group: Group]; deleted: []; cancel: [] }>()
 const types = ref<string[]>([])
-const type = ref(props.group?.type || props.initialType || '')
+const initialType = ref(props.group?.type || props.initialType || '')
+const type = ref(initialType.value)
 const note = ref(props.group?.note || '')
 const query = ref('')
 const results = ref<Entry[]>([])
@@ -22,6 +24,13 @@ const existingGroup = ref<Group>()
 const addingEntry = ref(false)
 const entrySaving = ref(false)
 const collectionDraft = ref(false)
+const inlineDraft = ref(false)
+const dirty = computed(() => {
+  const baseline = props.group?.members.map(member => member.id).sort().join(',') || ''
+  const members = selected.value.map(member => member.id).sort().join(',')
+  return collectionDraft.value || inlineDraft.value || members !== baseline || type.value !== initialType.value || note.value !== (props.group?.note || '')
+})
+useLeaveProtection(dirty, busy)
 const choosingMembers = ref(false)
 const memberList = ref<HTMLElement>()
 const memberListEntry = ref<HTMLElement>()
@@ -40,7 +49,10 @@ async function loadTypes() {
   typesError.value = ''
   try {
     types.value = await getGroupTypes()
-    if (!types.value.includes(type.value)) type.value = ''
+    if (!types.value.includes(type.value)) {
+      if (type.value === initialType.value) initialType.value = ''
+      type.value = ''
+    }
   } catch (err) {
     typesError.value = errorMessage(err)
   }
@@ -90,7 +102,21 @@ function selectEntry(member: Entry) {
     selected.value.push(member)
   }
   addingEntry.value = false
+  inlineDraft.value = false
   void search()
+}
+
+function resetDraft() {
+  selected.value = props.group ? [...props.group.members] : []
+  type.value = initialType.value
+  note.value = props.group?.note || ''
+  collectionDraft.value = false
+  inlineDraft.value = false
+}
+function cancelForm() {
+  if (dirty.value && !confirmDiscard()) return
+  resetDraft()
+  emit('cancel')
 }
 
 async function remove() {
@@ -100,6 +126,8 @@ async function remove() {
   deleting.value = true
   try {
     await deleteGroup(props.group.id)
+    resetDraft()
+    deleting.value = false
     emit('deleted')
   } catch (err) {
     error.value = errorMessage(err)
@@ -117,6 +145,8 @@ async function save() {
     if (props.group && selected.value.length < 2) {
       if (window.confirm('剩余成员不足两个，保存后将删除整个关系组；所有词条都会保留。确定继续吗？')) {
         await deleteGroup(props.group.id)
+        resetDraft()
+        saving.value = false
         emit('deleted')
       }
       return
@@ -125,6 +155,8 @@ async function save() {
     const group = props.group
       ? await updateGroup(props.group.id, type.value, note.value, ids)
       : await createGroup(props.entry?.id ?? ids[0]!, type.value, note.value, ids)
+    resetDraft()
+    saving.value = false
     emit('saved', group)
   } catch (err) {
     error.value = errorMessage(err)
@@ -178,7 +210,7 @@ watch(query, search, { immediate: true })
         <button v-if="collecting" type="button" class="button secondary" @click="focusCollector">收录缺少的词条</button>
         <template v-else>
           <button v-if="!addingEntry" type="button" class="button secondary" @click="addingEntry = true">＋ 新增缺少的词条</button>
-          <EntryCollector v-else inline :initial-spelling="query" :disabled="busy" @selected="selectEntry" @busy="entrySaving = $event" @cancel="addingEntry = false" />
+          <EntryCollector v-else inline :initial-spelling="query" :disabled="busy" @selected="selectEntry" @busy="entrySaving = $event" @draft="inlineDraft = $event" @cancel="addingEntry = false; inlineDraft = false" />
         </template>
       </fieldset>
       </div>
@@ -208,7 +240,7 @@ watch(query, search, { immediate: true })
       </div>
       <div class="form-actions group-actions">
         <button v-if="group" class="button secondary delete-group" type="button" :disabled="busy" @click="remove">{{ deleting ? '正在删除…' : '删除关系组' }}</button>
-        <button class="button secondary" type="button" :disabled="busy" @click="emit('cancel')">{{ group ? '取消编辑' : '取消建组' }}</button>
+        <button class="button secondary" type="button" :disabled="busy" @click="cancelForm">{{ group ? '取消编辑' : '取消建组' }}</button>
         <span v-if="saveHint && !busy" class="field-hint save-hint">{{ saveHint }}</span>
         <button class="button primary" type="submit" :disabled="busy || !!saveHint">
           {{ saving ? '正在保存…' : '保存关系组' }}

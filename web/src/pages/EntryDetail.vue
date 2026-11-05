@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { confirmDiscard, hasUnsavedChanges, useLeaveProtection } from '../leaveProtection'
 import GroupCard from '../components/GroupCard.vue'
 import GroupForm from '../components/GroupForm.vue'
 import {
@@ -63,6 +64,10 @@ const formDefinition = ref('')
 const saving = ref(false)
 const formError = ref('')
 const existingEntry = ref<Entry>()
+const editButton = ref<HTMLButtonElement>()
+const spellingInput = ref<HTMLInputElement>()
+const dirty = computed(() => editing.value && !!entry.value && (formSpelling.value !== entry.value.spelling || formDefinition.value !== entry.value.definition))
+useLeaveProtection(dirty, saving)
 
 async function load() {
   loading.value = true
@@ -81,18 +86,22 @@ async function load() {
 
 function startEditing() {
   if (!entry.value) return
+  if (creatingGroup.value && hasUnsavedChanges() && !confirmDiscard()) return
   creatingGroup.value = false
   formSpelling.value = entry.value.spelling
   formDefinition.value = entry.value.definition
   formError.value = ''
   existingEntry.value = undefined
   editing.value = true
+  void nextTick(() => spellingInput.value?.focus())
 }
 
 function cancelEditing() {
+  if (dirty.value && !confirmDiscard()) return
   editing.value = false
   formError.value = ''
   existingEntry.value = undefined
+  void nextTick(() => editButton.value?.focus())
 }
 
 async function save() {
@@ -152,7 +161,7 @@ async function groupSaved() {
         </div>
         <div class="heading-actions">
           <button class="button primary" type="button" @click="creatingGroup = true">＋ 建立关系组</button>
-          <button class="button secondary" type="button" @click="startEditing">
+          <button ref="editButton" class="button secondary" type="button" @click="startEditing">
             ✎ 编辑词条
           </button>
           <button class="button secondary" type="button" @click="startDelete">删除词条</button>
@@ -222,6 +231,7 @@ async function groupSaved() {
         <label for="spelling">词条拼写 <span class="required">必填</span></label
         ><input
           id="spelling"
+          ref="spellingInput"
           v-model="formSpelling"
           name="spelling"
           placeholder="例如 Apple、give up、mother-in-law"

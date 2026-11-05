@@ -1326,3 +1326,5 @@ textarea {
     column-gap: 32px;
   }
 }
+.skip-link { position: absolute; left: 1rem; top: -5rem; z-index: 10; background: white; padding: .5rem 1rem; }
+.skip-link:focus { top: 1rem; }

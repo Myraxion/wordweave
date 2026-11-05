@@ -1,11 +1,23 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { isSaving } from './leaveProtection'
 import { getStats, notebookRevision } from './api'
 
 const route = useRoute()
 const router = useRouter()
 const query = ref('')
+const saveNotice = ref(false)
+function blocked() { saveNotice.value = true }
+function updateSaveNotice() { if (!isSaving()) saveNotice.value = false }
+onMounted(() => { window.addEventListener('save-navigation-blocked', blocked); window.addEventListener('save-state-changed', updateSaveNotice) })
+onBeforeUnmount(() => { window.removeEventListener('save-navigation-blocked', blocked); window.removeEventListener('save-state-changed', updateSaveNotice) })
+watch(() => route.fullPath, async () => {
+  saveNotice.value = false
+  document.title = (route.path === '/' ? '全部词条' : route.path === '/relations' ? '关系浏览' : route.path.includes('/new') ? '收录与建组' : route.path.startsWith('/groups/') ? '编辑关系组' : '词条详情') + ' · Wordweave'
+  await nextTick()
+  document.getElementById('main')?.focus({ preventScroll: true })
+}, { immediate: true })
 const browsing = computed(() => route.path === '/' || route.path === '/relations')
 const totals = ref<{ entries: number; groups: number }>()
 const statsError = ref(false)
@@ -37,6 +49,7 @@ function submitSearch() {
 </script>
 
 <template>
+  <a class="skip-link" href="#main">跳至主要内容</a>
   <div class="layout">
     <aside class="sidebar">
       <RouterLink class="brand" to="/" aria-label="Wordweave 生词本首页">
@@ -72,7 +85,8 @@ function submitSearch() {
           <span v-else>正在统计…</span>
         </div>
       </header>
-      <main id="main" :class="{ 'browse-main': browsing }"><RouterView :key="$route.fullPath" /></main>
+      <p v-if="saveNotice" role="status" class="notice">正在保存，请稍候</p>
+      <main id="main" tabindex="-1" :class="{ 'browse-main': browsing }"><RouterView :key="$route.fullPath" /></main>
       <footer>WORDWEAVE <span>让遇见的词，成为自己的语言。</span></footer>
     </div>
   </div>
