@@ -1173,6 +1173,7 @@ textarea {
   overflow-wrap: anywhere;
 }
 .reveal-text {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
@@ -1192,11 +1193,27 @@ textarea {
   height: calc(2lh + 4px);
 }
 .study-content {
+  grid-area: 1 / 1;
+  z-index: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+}
+.reveal-toggle {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.reveal-toggle:focus-visible, .study-content:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 1px;
 }
 .entry-copy p.masked-definition {
   display: block;
