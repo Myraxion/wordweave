@@ -1237,5 +1237,5 @@ textarea {
 .timeline-group:last-child::before { bottom: auto; height: 8px; }
 .timeline-heading { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; padding: 0 0 12px; color: #476a50; font-weight: 600; line-height: 32px; }
 .timeline-date { font-size: 20px; }
-.timeline-count { color: #647a5c; font-size: 14px; font-weight: 400; }
+.timeline-heading .small-count { line-height: 1.5; font-weight: 400; }
 .timeline-heading::after { content: ''; position: absolute; left: -16px; top: 12px; width: 8px; height: 8px; border-radius: 50%; background: #246857; }
