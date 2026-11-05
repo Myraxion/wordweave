@@ -7,6 +7,7 @@ import GroupCard from '../components/GroupCard.vue'
 import DateGrid from '../components/DateGrid.vue'
 import LayoutSwitch from '../components/LayoutSwitch.vue'
 import StudyText from '../components/StudyText.vue'
+import PronunciationButton from '../components/PronunciationButton.vue'
 import { useBrowseLayout } from '../browseLayout'
 import { studyMode } from '../studyMode'
 
@@ -88,6 +89,7 @@ onMounted(load)
               <h3 lang="en" :class="{ 'masked-entry-heading': studyMode === 'hide-spelling' }">
                 <StudyText v-if="studyMode === 'hide-spelling'" :text="entry.spelling" masked label="拼写" kind="spelling" />
                 <RouterLink v-else :to="`/entries/${entry.id}`">{{ entry.spelling }}</RouterLink>
+                <PronunciationButton v-if="studyMode !== 'hide-spelling'" :spelling="entry.spelling" />
                 <RouterLink v-if="studyMode === 'hide-spelling'" :to="`/entries/${entry.id}`" class="member-detail" aria-label="查看词条详情"><span aria-hidden="true">↗</span></RouterLink>
               </h3>
               <p :class="{ muted: !entry.definition.trim(), 'masked-definition': studyMode === 'hide-definition' && !!entry.definition.trim() }">

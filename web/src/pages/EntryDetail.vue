@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { blockWhileSaving, confirmDiscard, hasUnsavedChanges, useLeaveProtection } from '../leaveProtection'
 import GroupCard from '../components/GroupCard.vue'
+import PronunciationButton from '../components/PronunciationButton.vue'
 import GroupForm from '../components/GroupForm.vue'
 import {
   ApiError,
@@ -152,7 +153,7 @@ async function groupSaved() {
       <div class="page-heading">
         <div>
 
-          <h1 class="word-title" lang="en">{{ entry.spelling }}</h1>
+          <h1 class="word-title" lang="en">{{ entry.spelling }} <PronunciationButton :spelling="entry.spelling" /></h1>
           <p class="subtitle">
             收录于
             <time :datetime="entry.createdAt">{{

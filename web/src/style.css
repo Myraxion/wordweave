@@ -1434,3 +1434,18 @@ textarea {
 }
 .skip-link { position: absolute; left: 1rem; top: -5rem; z-index: 10; background: var(--surface); padding: .5rem 1rem; }
 .skip-link:focus { top: 1rem; }
+.pronunciation-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  vertical-align: middle;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pronunciation-button:hover { background: var(--surface-hover, rgba(90, 130, 100, .15)); }

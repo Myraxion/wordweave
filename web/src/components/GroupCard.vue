@@ -2,6 +2,7 @@
 import { formatDate, formatDateTime, type Group } from '../api'
 import type { StudyMode } from '../studyMode'
 import StudyText from './StudyText.vue'
+import PronunciationButton from './PronunciationButton.vue'
 
 withDefaults(defineProps<{ group: Group; currentId?: number; mode?: StudyMode; compact?: boolean; browse?: boolean; hideDate?: boolean }>(), {
   mode: 'full',
@@ -32,6 +33,7 @@ withDefaults(defineProps<{ group: Group; currentId?: number; mode?: StudyMode; c
         <div class="member-heading">
           <StudyText v-if="mode === 'hide-spelling'" class="member-spelling" lang="en" :text="member.spelling" masked label="拼写" kind="spelling" />
           <RouterLink v-else :to="'/entries/' + member.id" class="member-spelling" lang="en">{{ member.spelling }}</RouterLink>
+          <PronunciationButton v-if="mode !== 'hide-spelling'" :spelling="member.spelling" />
           <span v-if="compact && member.id === currentId" class="current-member-label">当前</span>
           <RouterLink v-if="compact && (!browse || mode === 'hide-spelling')" :to="'/entries/' + member.id" class="member-detail" :aria-label="mode === 'hide-spelling' ? '查看词条详情' : '查看 ' + member.spelling + ' 的详情'"><span aria-hidden="true">↗</span></RouterLink>
         </div>

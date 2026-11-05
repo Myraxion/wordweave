@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { isSaving } from './leaveProtection'
 import { getStats, notebookRevision } from './api'
 import ThemeSwitch from './components/ThemeSwitch.vue'
+import { speechError, stopSpeech } from './speech'
 
 const route = useRoute()
 const router = useRouter()
@@ -14,6 +15,8 @@ function updateSaveNotice() { if (!isSaving()) saveNotice.value = false }
 onMounted(() => { window.addEventListener('save-navigation-blocked', blocked); window.addEventListener('save-state-changed', updateSaveNotice) })
 onBeforeUnmount(() => { window.removeEventListener('save-navigation-blocked', blocked); window.removeEventListener('save-state-changed', updateSaveNotice) })
 watch(() => route.fullPath, async () => {
+  stopSpeech()
+  speechError.value = ''
   saveNotice.value = false
   document.title = (route.path === '/' ? '全部词条' : route.path === '/relations' ? '关系浏览' : route.path.includes('/new') ? '收录与建组' : route.path.startsWith('/groups/') ? '编辑关系组' : '词条详情') + ' · Wordweave'
   await nextTick()
@@ -90,6 +93,7 @@ function submitSearch() {
         </div>
       </header>
       <p v-if="saveNotice" role="status" class="notice">正在保存，请稍候</p>
+      <p v-if="speechError" role="alert" class="notice error">{{ speechError }}</p>
       <main id="main" tabindex="-1" :class="{ 'browse-main': browsing }"><RouterView :key="$route.fullPath" /></main>
       <footer>WORDWEAVE <span>让遇见的词，成为自己的语言。</span></footer>
     </div>
