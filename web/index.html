@@ -4,6 +4,19 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#246857" />
+    <script>
+      // Restore appearance before styles and the app load to avoid a light flash.
+      let theme = 'system'
+      try {
+        const saved = localStorage.getItem('wordweave.theme')
+        if (saved === 'light' || saved === 'dark') theme = saved
+      } catch {}
+      document.documentElement.dataset.themePreference = theme
+      document.documentElement.dataset.theme = theme === 'system'
+        ? (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : theme
+      document.documentElement.style.colorScheme = document.documentElement.dataset.theme
+    </script>
     <title>Wordweave · 生词本</title>
   </head>
   <body>

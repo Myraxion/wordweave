@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { isSaving } from './leaveProtection'
 import { getStats, notebookRevision } from './api'
+import ThemeSwitch from './components/ThemeSwitch.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -79,10 +80,13 @@ function submitSearch() {
           <input id="global-search" v-model="query" name="q" type="search" placeholder="搜索拼写、释义或关系说明" />
           <button type="submit">搜索 <span aria-hidden="true">↵</span></button>
         </form>
-        <div class="notebook-totals" aria-live="polite" aria-atomic="true">
-          <span v-if="totals">词条 <strong>{{ totals.entries }}</strong> · 关系组 <strong>{{ totals.groups }}</strong></span>
-          <button v-else-if="statsError" type="button" class="text-button" @click="refreshStats">统计暂不可用，重试</button>
-          <span v-else>正在统计…</span>
+        <div class="topbar-actions">
+          <div class="notebook-totals" aria-live="polite" aria-atomic="true">
+            <span v-if="totals">词条 <strong>{{ totals.entries }}</strong> · 关系组 <strong>{{ totals.groups }}</strong></span>
+            <button v-else-if="statsError" type="button" class="text-button" @click="refreshStats">统计暂不可用，重试</button>
+            <span v-else>正在统计…</span>
+          </div>
+          <ThemeSwitch />
         </div>
       </header>
       <p v-if="saveNotice" role="status" class="notice">正在保存，请稍候</p>
