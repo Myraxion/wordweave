@@ -5,7 +5,7 @@ import { chromium } from 'playwright'
 
 const definition = '这是很长的释义，需要在列表中截断，同时在详情和关系组中完整显示。'.repeat(8)
 const entries = [
-  { id: 1, spelling: 'a very long phrase for comparison', definition, createdAt: '2026-11-04T12:00:00Z', updatedAt: null },
+  { id: 1, spelling: 'a very long phrase for comparison '.repeat(12).trim(), definition, createdAt: '2026-11-04T12:00:00Z', updatedAt: null },
   { id: 2, spelling: 'short', definition: '简短释义', createdAt: '2026-11-04T12:00:00Z', updatedAt: null },
 ]
 const groups = [{ id: 1, type: '近义', note: 'hit', createdAt: entries[0].createdAt, updatedAt: null, members: entries }]
@@ -44,6 +44,7 @@ test('list summaries and relation members remain readable across screen sizes', 
     await mask.focus()
     assert.equal(await mask.getAttribute('aria-pressed'), 'false')
     assert.equal(await mask.getAttribute('aria-describedby'), null)
+    assert.equal(await summary.getByRole('region', { name: '释义' }).count(), 0)
     await page.keyboard.press('Enter')
     assert.equal(await mask.getAttribute('aria-pressed'), 'true')
     const descriptionId = await mask.getAttribute('aria-describedby')
@@ -57,6 +58,7 @@ test('list summaries and relation members remain readable across screen sizes', 
     await page.keyboard.press('Shift+Tab')
     await page.keyboard.press('Space')
     assert.equal(await mask.getAttribute('aria-describedby'), null)
+    assert.equal(await summary.getByRole('region', { name: '释义' }).count(), 0)
     assert.equal(await mask.evaluate(el => el === document.activeElement), true)
     const maskHeight = await mask.evaluate(el => el.getBoundingClientRect().height)
     await summary.locator('.reveal-text').hover({ force: true })
@@ -65,6 +67,7 @@ test('list summaries and relation members remain readable across screen sizes', 
     assert.ok(maskHeight > dimensions.height, 'answer region keeps its fixed three-line height')
     await page.getByRole('button', { name: '遮挡拼写' }).click()
     const spellingMask = page.locator('.compact-entry-row').first().locator('h3 button')
+    const spellingHeight = await spellingMask.evaluate(el => el.getBoundingClientRect().height)
     await spellingMask.focus()
     assert.equal(await spellingMask.evaluate(el => el === document.activeElement), true)
     assert.equal(await spellingMask.getAttribute('aria-describedby'), null)
@@ -72,9 +75,19 @@ test('list summaries and relation members remain readable across screen sizes', 
     assert.equal(await spellingMask.getAttribute('aria-pressed'), 'true')
     const spellingId = await spellingMask.getAttribute('aria-describedby')
     assert.equal(await page.locator(`[id="${spellingId}"]`).innerText(), entries[0].spelling)
+    assert.equal(await spellingMask.evaluate(el => el.getBoundingClientRect().height), spellingHeight)
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('ArrowDown')
+    await page.waitForFunction(id => document.getElementById(id)?.scrollTop > 0, spellingId)
+    await page.keyboard.press('Tab')
+    assert.equal(await page.getByRole('link', { name: '查看词条详情' }).first().evaluate(el => el === document.activeElement), true)
     assert.equal(await page.getByRole('link', { name: '查看词条详情' }).count(), 2)
     await page.getByRole('button', { name: '遮挡释义' }).click()
     await page.getByRole('button', { name: '遮挡拼写' }).click()
+    assert.equal(await page.getByRole('button', { name: '显示拼写' }).first().getAttribute('aria-describedby'), null)
+    await page.goto('http://127.0.0.1:5180/relations')
+    assert.equal(await page.locator('.group-note details[open], details.group-note[open]').count(), 0)
+    await page.goBack()
     assert.equal(await page.getByRole('button', { name: '显示拼写' }).first().getAttribute('aria-describedby'), null)
     await page.getByRole('button', { name: '完整模式' }).click()
     for (const width of [320, 390, 768, 1440]) {
