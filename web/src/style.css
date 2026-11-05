@@ -1236,14 +1236,8 @@ textarea {
 
 .date-timeline { margin-top: 16px; }
 .timeline-basis { margin: 0 0 16px; color: #647a5c; font-size: 12px; }
-.timeline-group { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 24px; position: relative; padding-bottom: 24px; }
-.timeline-group::before { content: ''; position: absolute; left: 144px; top: 8px; bottom: -8px; width: 1px; background: #c9d8c7; }
+.timeline-group { position: relative; padding: 0 0 24px 16px; }
+.timeline-group::before { content: ''; position: absolute; left: 4px; top: 8px; bottom: -8px; width: 1px; background: #c9d8c7; }
 .timeline-group:last-child::before { bottom: auto; height: 8px; }
-.timeline-date { position: relative; padding: 0 24px 0 0; color: #476a50; font-size: 14px; font-weight: 600; line-height: 24px; }
-.timeline-date::after { content: ''; position: absolute; right: 12px; top: 8px; width: 8px; height: 8px; border-radius: 50%; background: #246857; }
-@media (max-width: 650px) {
-  .timeline-group { display: block; padding: 0 0 24px 16px; }
-  .timeline-group::before { left: 4px; }
-  .timeline-date { padding: 0 0 12px; }
-  .timeline-date::after { left: -16px; right: auto; }
-}
+.timeline-date { position: relative; padding: 0 0 12px; color: #476a50; font-size: 14px; font-weight: 600; line-height: 24px; }
+.timeline-date::after { content: ''; position: absolute; left: -16px; top: 8px; width: 8px; height: 8px; border-radius: 50%; background: #246857; }
