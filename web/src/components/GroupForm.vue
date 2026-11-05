@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ApiError, createGroup, deleteGroup, errorMessage, getGroupTypes, listEntries, updateGroup, type Entry, type Group } from '../api'
 import EntryCollector from './EntryCollector.vue'
 
@@ -22,6 +22,9 @@ const existingGroup = ref<Group>()
 const addingEntry = ref(false)
 const entrySaving = ref(false)
 const collectionDraft = ref(false)
+const choosingMembers = ref(false)
+const memberList = ref<HTMLElement>()
+const memberListEntry = ref<HTMLElement>()
 const candidates = computed(() => results.value.filter(member => member.id !== props.entry?.id))
 const memberCount = computed(() => selected.value.length + (props.entry ? 1 : 0))
 const saveHint = computed(() => {
@@ -61,6 +64,21 @@ function toggle(member: Entry) {
   const index = selected.value.findIndex(value => value.id === member.id)
   if (index < 0) selected.value.push(member)
   else selected.value.splice(index, 1)
+}
+
+async function enterMemberList() {
+  choosingMembers.value = true
+  await nextTick()
+  memberList.value?.querySelector<HTMLInputElement>('input')?.focus()
+}
+
+function leaveMemberList(event: FocusEvent) {
+  if (!memberList.value?.contains(event.relatedTarget as Node | null)) choosingMembers.value = false
+}
+
+function exitMemberList() {
+  choosingMembers.value = false
+  memberListEntry.value?.focus()
 }
 
 function focusCollector() {
@@ -129,7 +147,8 @@ watch(query, search, { immediate: true })
       <div class="group-members-task">
       <fieldset :disabled="busy">
         <legend>组成员（已选 {{ memberCount }} 个）</legend>
-        <ul class="selected-members">
+        <p v-if="!memberCount" class="selected-members-empty">尚未选择成员</p>
+        <ul v-else class="selected-members">
           <li v-if="entry"><span lang="en">{{ entry.spelling }}</span><small>当前词条</small></li>
           <li v-for="member in selected" :key="member.id">
             <span lang="en">{{ member.spelling }}</span>
@@ -146,14 +165,16 @@ watch(query, search, { immediate: true })
         </div>
         <p v-else-if="loading" role="status">正在搜索词条…</p>
         <p v-else-if="!candidates.length" class="field-hint">{{ entry ? '没有其他匹配的词条。' : '没有匹配的词条，可以新增缺少的词条。' }}</p>
-        <ul v-else class="member-options" aria-label="可选词条">
-          <li v-for="member in candidates" :key="member.id">
-            <label>
-              <input type="checkbox" :checked="selected.some(value => value.id === member.id)" @change="toggle(member)" />
-              <span><strong lang="en">{{ member.spelling }}</strong><small>{{ member.definition || '暂未填写释义' }}</small></span>
-            </label>
-          </li>
-        </ul>
+        <div v-else ref="memberList" @focusout="leaveMemberList" @keydown.esc.stop.prevent="exitMemberList">
+          <ul ref="memberListEntry" class="member-options" aria-label="可选词条" tabindex="0" @keydown.enter.self.prevent="enterMemberList" @keydown.space.self.prevent="enterMemberList">
+            <li v-for="member in candidates" :key="member.id">
+              <label>
+                <input type="checkbox" :tabindex="choosingMembers ? 0 : -1" :checked="selected.some(value => value.id === member.id)" @change="toggle(member)" @keydown.enter.prevent="toggle(member)" />
+                <span><strong lang="en">{{ member.spelling }}</strong><small>{{ member.definition || '暂未填写释义' }}</small></span>
+              </label>
+            </li>
+          </ul>
+        </div>
         <button v-if="collecting" type="button" class="button secondary" @click="focusCollector">收录缺少的词条</button>
         <template v-else>
           <button v-if="!addingEntry" type="button" class="button secondary" @click="addingEntry = true">＋ 新增缺少的词条</button>

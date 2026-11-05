@@ -132,3 +132,61 @@ test('group editing keeps member and relation tasks in order while resizing', as
   } finally { await browser?.close(); server.kill() }
 })
 
+
+
+test('candidate list has an entry point and keyboard selection mode', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5183', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5183')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage()
+    const entries = [{ id: 1, spelling: 'apple', definition: 'fruit' }, { id: 2, spelling: 'pear', definition: 'fruit' }]
+    await page.route('**/api/**', async route => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/api/group-types') return route.fulfill({ json: ['近义'] })
+      if (path === '/api/stats') return route.fulfill({ json: { entries: 2, groups: 0 } })
+      if (path === '/api/entries') return route.fulfill({ json: entries })
+      throw new Error(`Unexpected API: ${path}`)
+    })
+    await page.goto('http://127.0.0.1:5183/entries/new')
+    const search = page.getByLabel('搜索并多选词条')
+    const list = page.getByRole('list', { name: '可选词条' })
+    const apple = page.getByRole('checkbox', { name: /apple/ })
+    const pear = page.getByRole('checkbox', { name: /pear/ })
+    await apple.waitFor()
+    assert.equal(await page.getByText('尚未选择成员').isVisible(), true)
+    const searchTop = await search.evaluate(el => el.getBoundingClientRect().top + window.scrollY)
+    await search.focus()
+    await page.keyboard.press('Tab')
+    assert.equal(await list.evaluate(el => el === document.activeElement), true)
+    await page.keyboard.press('Enter')
+    assert.equal(await apple.evaluate(el => el === document.activeElement), true)
+    const focusedRow = apple.locator('..')
+    assert.notEqual(await focusedRow.evaluate(el => getComputedStyle(el).backgroundColor), 'rgba(0, 0, 0, 0)')
+    await page.keyboard.press('Space')
+    assert.equal(await apple.isChecked(), true)
+    assert.equal(await page.getByText('尚未选择成员').count(), 0)
+    assert.ok(Math.abs(await search.evaluate(el => el.getBoundingClientRect().top + window.scrollY) - searchTop) < 1, 'selecting the first member keeps the form in place')
+    await page.keyboard.press('Space')
+    assert.equal(await page.getByText('尚未选择成员').isVisible(), true)
+    assert.ok(Math.abs(await search.evaluate(el => el.getBoundingClientRect().top + window.scrollY) - searchTop) < 1, 'removing the last member keeps the form in place')
+    await page.keyboard.press('Space')
+    await page.keyboard.press('Tab')
+    assert.equal(await pear.evaluate(el => el === document.activeElement), true)
+    await page.keyboard.press('Enter')
+    assert.equal(await pear.isChecked(), true)
+    await page.keyboard.press('Escape')
+    assert.equal(await list.evaluate(el => el === document.activeElement), true)
+    await page.keyboard.press('Space')
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Tab')
+    assert.equal(await page.getByRole('button', { name: '收录缺少的词条' }).evaluate(el => el === document.activeElement), true)
+    assert.equal(await apple.isChecked(), true)
+    assert.equal(await pear.isChecked(), true)
+    await search.focus()
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Tab')
+    assert.equal(await page.getByRole('button', { name: '收录缺少的词条' }).evaluate(el => el === document.activeElement), true)
+  } finally { await browser?.close(); server.kill() }
+})
