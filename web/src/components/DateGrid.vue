@@ -36,7 +36,10 @@ const groups = computed(() => {
   <div v-if="grouped && items.length" class="date-timeline">
     <p class="timeline-basis">{{ sort.startsWith('created_') ? (kind === 'entry' ? '按添加日期' : '按创建日期') : '按修改日期' }}</p>
     <section v-for="group in groups" :key="group.date" class="timeline-group">
-      <h3 class="timeline-date">{{ group.date }}</h3>
+      <h3 class="timeline-heading">
+        <span class="timeline-date">{{ group.date }}</span>
+        <span class="timeline-count">{{ group.items.length }} {{ kind === 'entry' ? '个词条' : '个关系组' }}</span>
+      </h3>
       <component :is="kind === 'entry' ? 'ul' : 'div'" :class="kind === 'entry' ? 'entry-list compact-entry-list' : 'group-grid'">
         <template v-for="item in group.items" :key="item.id"><slot :item="item" :grouped="true" /></template>
       </component>

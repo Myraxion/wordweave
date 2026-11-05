@@ -1237,7 +1237,9 @@ textarea {
 .date-timeline { margin-top: 16px; }
 .timeline-basis { margin: 0 0 16px; color: #647a5c; font-size: 12px; }
 .timeline-group { position: relative; padding: 0 0 24px 16px; }
-.timeline-group::before { content: ''; position: absolute; left: 4px; top: 8px; bottom: -8px; width: 1px; background: #c9d8c7; }
+.timeline-group::before { content: ''; position: absolute; left: 4px; top: 16px; bottom: -16px; width: 1px; background: #c9d8c7; }
 .timeline-group:last-child::before { bottom: auto; height: 8px; }
-.timeline-date { position: relative; padding: 0 0 12px; color: #476a50; font-size: 14px; font-weight: 600; line-height: 24px; }
-.timeline-date::after { content: ''; position: absolute; left: -16px; top: 8px; width: 8px; height: 8px; border-radius: 50%; background: #246857; }
+.timeline-heading { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 12px; padding: 0 0 12px; color: #476a50; font-weight: 600; line-height: 32px; }
+.timeline-date { font-size: 20px; }
+.timeline-count { color: #647a5c; font-size: 14px; font-weight: 400; }
+.timeline-heading::after { content: ''; position: absolute; left: -16px; top: 12px; width: 8px; height: 8px; border-radius: 50%; background: #246857; }
