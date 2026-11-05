@@ -971,8 +971,8 @@ textarea {
 .compact-entry-list,
 .group-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(350px, 100%), 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(310px, 100%), 1fr));
+  gap: 16px;
   align-items: start;
 }
 .compact-entry-row {
@@ -1033,10 +1033,6 @@ textarea {
   padding: 26px 0;
   color: #839083;
   font-size: 13px;
-}
-.group-grid {
-  grid-template-columns: repeat(auto-fill, minmax(min(310px, 100%), 1fr));
-  gap: 16px;
 }
 .group-grid > .relation-card {
   margin: 0;
