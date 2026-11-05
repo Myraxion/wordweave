@@ -61,3 +61,74 @@ test('collection and group tasks adapt without losing input', async () => {
   } finally { await browser?.close(); server.kill() }
 })
 
+
+test('group editing keeps member and relation tasks in order while resizing', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5182', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5182')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+    const entries = [{ id: 1, spelling: 'apple', definition: 'fruit' }, { id: 2, spelling: 'pear', definition: 'fruit' }, { id: 3, spelling: 'long phrase', definition: 'long definition '.repeat(40) }]
+    const group = { id: 7, type: '近义', note: 'original', members: entries.slice(0, 2) }
+    let attempts = 0
+    let deleted = 0
+    let saved
+    await page.route('**/api/**', async route => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/api/groups/7' && route.request().method() === 'DELETE') { deleted++; return route.fulfill({ json: { deleted: true } }) }
+      if (path === '/api/groups/7' && route.request().method() === 'PUT') {
+        saved = route.request().postDataJSON()
+        if (++attempts === 1) return route.fulfill({ status: 409, json: { error: '关系组已存在', existingGroup: group } })
+        return route.fulfill({ json: group })
+      }
+      if (path === '/api/group-types') return route.fulfill({ json: ['近义', '反义'] })
+      if (path === '/api/stats') return route.fulfill({ json: { entries: 3, groups: 1 } })
+      if (path === '/api/search') return route.fulfill({ json: { entries, groups: [] } })
+      if (path === '/api/entries') return route.fulfill({ json: entries })
+      if (path === '/api/groups') return route.fulfill({ json: [] })
+      if (path === '/api/groups/7') return route.fulfill({ json: group })
+      throw new Error(`Unexpected API: ${path}`)
+    })
+    await page.goto('http://127.0.0.1:5182/groups/7')
+    const members = page.getByLabel('搜索并多选词条')
+    const type = page.getByLabel('关系类型 必填')
+    await members.waitFor()
+    let a = await members.boundingBox(), b = await type.boundingBox()
+    assert.ok(a.x < b.x, 'desktop member and relation tasks are side by side')
+    await page.locator('#group-note').fill('changed')
+    await page.getByText('long phrase', { exact: true }).click()
+    for (const width of [320, 390, 651, 768, 1440]) {
+      await page.setViewportSize({ width, height: 900 })
+      a = await members.boundingBox(); b = await type.boundingBox()
+      if (width === 320) assert.ok(a.y < b.y, 'mobile members precede relation fields')
+      assert.equal(await page.locator('#group-note').inputValue(), 'changed')
+      assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), `no overflow at ${width}`)
+    }
+    await page.getByRole('button', { name: '＋ 新增缺少的词条' }).focus()
+    await page.keyboard.press('Tab')
+    assert.equal(await page.evaluate(() => document.activeElement.id), 'group-type')
+    await page.getByRole('button', { name: '＋ 新增缺少的词条' }).click()
+    assert.match(await page.locator('.group-actions').innerText(), /完成或取消新增/)
+    await page.getByRole('button', { name: '取消新增' }).click()
+    await page.getByRole('button', { name: '保存关系组' }).click()
+    await page.getByRole('link', { name: /编辑已有组/ }).waitFor()
+    assert.equal(await page.locator('#group-note').inputValue(), 'changed')
+    await page.getByRole('button', { name: '保存关系组' }).click()
+    await page.waitForURL('**/relations')
+    assert.deepEqual(saved, { type: '近义', note: 'changed', memberIds: [1, 2, 3] })
+    await page.goto('http://127.0.0.1:5182/groups/7')
+    await page.getByRole('button', { name: '取消编辑' }).click()
+    await page.waitForURL('**/relations')
+    await page.goto('http://127.0.0.1:5182/groups/7')
+    page.once('dialog', dialog => dialog.dismiss())
+    await page.getByRole('button', { name: '删除关系组' }).click()
+    assert.equal(deleted, 0)
+    await page.getByRole('button', { name: '取消选择 pear' }).click()
+    page.once('dialog', dialog => dialog.accept())
+    await page.getByRole('button', { name: '保存关系组' }).click()
+    await page.waitForURL('**/relations')
+    assert.equal(deleted, 1)
+  } finally { await browser?.close(); server.kill() }
+})
+

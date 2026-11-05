@@ -123,9 +123,10 @@ watch(query, search, { immediate: true })
 <template>
   <form class="form-card group-form" :class="{ 'collection-form': collecting }" :aria-label="collecting ? '收录词条与建立关系组' : group ? '编辑关系组' : '建立关系组'" @submit.prevent="save">
     <EntryCollector v-if="collecting" :disabled="busy" @selected="selectEntry" @busy="entrySaving = $event" @draft="collectionDraft = $event" />
-    <div class="group-preparation">
+    <div class="group-preparation" :class="{ 'group-edit-workspace': group }">
       <component :is="standalone ? 'h1' : 'h2'" :id="collecting ? 'create-group-heading' : undefined">{{ group ? '编辑关系组' : '建立关系组' }}</component>
       <p class="subtitle">选择已有词条，一起记录含义、用法或区别。</p>
+      <div class="group-members-task">
       <fieldset :disabled="busy">
         <legend>组成员（已选 {{ memberCount }} 个）</legend>
         <ul class="selected-members">
@@ -158,6 +159,10 @@ watch(query, search, { immediate: true })
           <button v-if="!addingEntry" type="button" class="button secondary" @click="addingEntry = true">＋ 新增缺少的词条</button>
           <EntryCollector v-else inline :initial-spelling="query" :disabled="busy" @selected="selectEntry" @busy="entrySaving = $event" @cancel="addingEntry = false" />
         </template>
+      </fieldset>
+      </div>
+      <div class="group-relation-task">
+      <fieldset :disabled="busy">
         <div class="field relation-fields">
           <label for="group-type">关系类型 <span class="required">必填</span></label>
           <div v-if="typesError" class="notice error" role="alert">
@@ -187,6 +192,7 @@ watch(query, search, { immediate: true })
         <button class="button primary" type="submit" :disabled="busy || !!saveHint">
           {{ saving ? '正在保存…' : '保存关系组' }}
         </button>
+      </div>
       </div>
     </div>
   </form>

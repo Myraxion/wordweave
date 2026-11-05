@@ -1299,3 +1299,14 @@ textarea {
     border-right: 1px solid var(--divider);
   }
 }
+
+.group-edit-workspace > h1,
+.group-edit-workspace > .subtitle { grid-column: 1 / -1; }
+.group-members-task, .group-relation-task { min-width: 0; }
+@media (min-width: 1000px) {
+  .group-edit-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 32px;
+  }
+}
