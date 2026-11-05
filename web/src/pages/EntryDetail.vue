@@ -141,7 +141,7 @@ async function groupSaved() {
     <div v-if="!editing">
       <div class="page-heading">
         <div>
-          <p class="eyebrow">IN YOUR COLLECTION</p>
+
           <h1 class="word-title" lang="en">{{ entry.spelling }}</h1>
           <p class="subtitle">
             收录于
@@ -208,7 +208,7 @@ async function groupSaved() {
     <form v-else class="form-card" @submit.prevent="save">
       <div class="page-heading" style="margin-bottom: 24px">
         <div>
-          <p class="eyebrow">EDIT WORD</p>
+
           <h1>编辑词条</h1>
           <p class="subtitle">
             收录于

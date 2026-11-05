@@ -67,7 +67,7 @@ onMounted(load)
   <div class="browse-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">RELATION GROUPS</p>
+
         <h1>关系浏览</h1>
         <p class="subtitle">把有关联的词放在一起，对照着记。</p>
       </div>

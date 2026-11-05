@@ -43,7 +43,7 @@ onMounted(load)
   <div class="browse-page">
     <div class="page-heading">
       <div>
-        <p class="eyebrow">YOUR WORD COLLECTION</p>
+
         <h1>{{ query ? '搜索结果' : '全部词条' }}</h1>
         <p v-if="query" class="subtitle search-summary">搜索“{{ query }}” <RouterLink class="inline-link" to="/">清除搜索</RouterLink></p>
         <p v-else class="subtitle">收集词条，也留一点时间温习。</p>
