@@ -3,6 +3,7 @@ import { ref } from 'vue'
 export const notebookRevision = ref(0)
 
 export interface Entry {
+  etag?: string
   id: number
   spelling: string
   definition: string
@@ -11,6 +12,7 @@ export interface Entry {
 }
 
 export interface Group {
+  etag?: string
   id: number
   type: string
   note: string
@@ -40,6 +42,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new ApiError(response.status, await response.json())
   }
   const result = await response.json() as T
+  const etag = response.headers.get('ETag')
+  if (etag && result && typeof result === 'object' && !Array.isArray(result)) {
+    Object.defineProperty(result, 'etag', { value: etag, enumerable: false })
+  }
   if (options?.method && options.method !== 'GET') notebookRevision.value++
   return result
 }
@@ -56,14 +62,14 @@ export const createEntry = (spelling: string, definition: string) =>
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ spelling, definition }),
   })
-export const updateEntry = (id: string | number, spelling: string, definition: string) =>
+export const updateEntry = (id: string | number, spelling: string, definition: string, etag?: string) =>
   request<Entry>(`/entries/${encodeURIComponent(id)}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(etag ? { 'If-Match': etag } : {}) },
     body: JSON.stringify({ spelling, definition }),
   })
-export const deleteEntry = (id: string | number) =>
-  request<{ deleted: boolean }>(`/entries/${encodeURIComponent(id)}`, { method: 'DELETE' })
+export const deleteEntry = (id: string | number, etag?: string) =>
+  request<{ deleted: boolean }>(`/entries/${encodeURIComponent(id)}`, { method: 'DELETE', headers: etag ? { 'If-Match': etag } : {} })
 
 export const getGroupTypes = () => request<string[]>('/group-types')
 export const search = (sort: string, query: string) =>
@@ -80,14 +86,14 @@ export const createGroup = (originId: number, type: string, note: string, member
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type, note, memberIds }),
   })
-export const updateGroup = (id: number, type: string, note: string, memberIds: number[]) =>
+export const updateGroup = (id: number, type: string, note: string, memberIds: number[], etag?: string) =>
   request<Group>('/groups/' + id, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(etag ? { 'If-Match': etag } : {}) },
     body: JSON.stringify({ type, note, memberIds }),
   })
-export const deleteGroup = (id: number) =>
-  request<{ deleted: boolean }>('/groups/' + id, { method: 'DELETE' })
+export const deleteGroup = (id: number, etag?: string) =>
+  request<{ deleted: boolean }>('/groups/' + id, { method: 'DELETE', headers: etag ? { 'If-Match': etag } : {} })
 
 export function errorMessage(error: unknown): string {
   return error instanceof ApiError

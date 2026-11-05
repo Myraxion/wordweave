@@ -45,7 +45,7 @@ async function removeEntry() {
   deleteError.value = ''
   conflictGroup.value = undefined
   try {
-    await deleteEntry(props.id)
+    await deleteEntry(props.id, entry.value?.etag)
     await router.push('/')
   } catch (err) {
     deleteError.value = errorMessage(err)
@@ -120,6 +120,7 @@ async function save() {
       props.id,
       formSpelling.value,
       formDefinition.value,
+      entry.value.etag,
     )
     entry.value = updated
     groups.value = groups.value.map(group => ({ ...group, members: group.members.map(member => member.id === updated.id ? updated : member) }))

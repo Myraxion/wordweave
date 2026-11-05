@@ -79,7 +79,7 @@ func (a *App) editGroup(w http.ResponseWriter, r *http.Request) {
 		Note      string  `json:"note"`
 		MemberIDs []int64 `json:"memberIds"`
 	}
-	if json.NewDecoder(r.Body).Decode(&input) != nil {
+	if decodeJSON(r, &input) != nil {
 		writeJSON(w, http.StatusBadRequest, apiError{Error: "请输入有效的 JSON 关系组。"})
 		return
 	}
@@ -116,30 +116,87 @@ func (a *App) deleteGroup(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
 }
 
-func (a *App) createGroup(w http.ResponseWriter, r *http.Request) {
+func (a *App) patchGroup(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil || id <= 0 {
-		writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的词条编号。"})
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的关系组编号。"})
 		return
 	}
-	if _, err := a.getEntry(r.Context(), id); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			writeJSON(w, http.StatusNotFound, apiError{Error: "找不到这个词条。"})
-		} else {
-			internalError(w, err)
-		}
+	var input struct {
+		Type      json.RawMessage `json:"type"`
+		Note      json.RawMessage `json:"note"`
+		MemberIDs json.RawMessage `json:"memberIds"`
+	}
+	if decodeJSON(r, &input) != nil {
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "请输入有效的 JSON 关系组。"})
 		return
+	}
+	group, err := a.getGroup(r.Context(), id)
+	if errors.Is(err, sql.ErrNoRows) {
+		writeJSON(w, http.StatusNotFound, apiError{Error: "找不到这个关系组。"})
+		return
+	}
+	if err != nil {
+		internalError(w, err)
+		return
+	}
+	ids := make([]int64, 0, len(group.Members))
+	for _, member := range group.Members {
+		ids = append(ids, member.ID)
+	}
+	for _, field := range []struct {
+		raw    json.RawMessage
+		target any
+	}{{input.Type, &group.Type}, {input.Note, &group.Note}, {input.MemberIDs, &ids}} {
+		if field.raw != nil && (string(field.raw) == "null" || json.Unmarshal(field.raw, field.target) != nil) {
+			writeJSON(w, http.StatusBadRequest, apiError{Error: "关系组字段无效。"})
+			return
+		}
+	}
+	group, err = a.updateGroup(r.Context(), id, group.Type, group.Note, ids)
+	switch {
+	case errors.Is(err, errInvalidGroup):
+		writeJSON(w, http.StatusBadRequest, apiError{Error: "请选择一种关系类型和至少两个不同的已有词条。"})
+	case errors.Is(err, errDuplicateGroup):
+		writeJSON(w, http.StatusConflict, apiError{Error: "这个关系组已存在。", ExistingGroup: &group})
+	case err != nil:
+		internalError(w, err)
+	default:
+		writeJSON(w, http.StatusOK, group)
+	}
+}
+
+func (a *App) createGroup(w http.ResponseWriter, r *http.Request) {
+	var id int64
+	if r.PathValue("id") != "" {
+		var err error
+		id, err = strconv.ParseInt(r.PathValue("id"), 10, 64)
+		if err != nil || id <= 0 {
+			writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的词条编号。"})
+			return
+		}
+		if _, err := a.getEntry(r.Context(), id); err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				writeJSON(w, http.StatusNotFound, apiError{Error: "找不到这个词条。"})
+			} else {
+				internalError(w, err)
+			}
+			return
+		}
 	}
 	var input struct {
 		Type      string  `json:"type"`
 		Note      string  `json:"note"`
 		MemberIDs []int64 `json:"memberIds"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+	if err := decodeJSON(r, &input); err != nil {
 		writeJSON(w, http.StatusBadRequest, apiError{Error: "请输入有效的 JSON 关系组。"})
 		return
 	}
-	group, err := a.addGroup(r.Context(), input.Type, input.Note, append(input.MemberIDs, id))
+	if id != 0 {
+		input.MemberIDs = append(input.MemberIDs, id)
+	}
+	group, err := a.addGroup(r.Context(), input.Type, input.Note, input.MemberIDs)
 	if errors.Is(err, errInvalidGroup) {
 		writeJSON(w, http.StatusBadRequest, apiError{Error: "请选择一种关系类型和至少两个不同的已有词条。"})
 		return

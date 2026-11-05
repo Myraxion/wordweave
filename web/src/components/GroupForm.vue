@@ -125,7 +125,7 @@ async function remove() {
   existingGroup.value = undefined
   deleting.value = true
   try {
-    await deleteGroup(props.group.id)
+    await deleteGroup(props.group.id, props.group.etag)
     resetDraft()
     deleting.value = false
     emit('deleted')
@@ -144,7 +144,7 @@ async function save() {
   try {
     if (props.group && selected.value.length < 2) {
       if (window.confirm('剩余成员不足两个，保存后将删除整个关系组；所有词条都会保留。确定继续吗？')) {
-        await deleteGroup(props.group.id)
+        await deleteGroup(props.group.id, props.group.etag)
         resetDraft()
         saving.value = false
         emit('deleted')
@@ -153,7 +153,7 @@ async function save() {
     }
     const ids = selected.value.map(member => member.id)
     const group = props.group
-      ? await updateGroup(props.group.id, type.value, note.value, ids)
+      ? await updateGroup(props.group.id, type.value, note.value, ids, props.group.etag)
       : await createGroup(props.entry?.id ?? ids[0]!, type.value, note.value, ids)
     resetDraft()
     saving.value = false

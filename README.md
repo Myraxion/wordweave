@@ -115,13 +115,19 @@ go test ./...
 | `GET /api/entries` | 词条数组，默认最近修改在前；可用 `q` 搜索拼写或释义，用 `sort` 指定排序；空列表为 `[]` |
 | `GET /api/search` | 用 `q` 搜索，返回 `{entries, groups}`：词条由拼写或释义命中，组由关系说明命中；`sort` 仅影响词条；空查询返回全部词条和空组数组 |
 | `GET /api/entries/{id}` | 词条详情，不存在时为 404 |
+| `GET /api/entries/exact?spelling=Apple` | 按去除首尾空格、忽略大小写后的拼写精确查找；不存在时为 404 |
 | `PUT /api/entries/{id}` | 修改拼写和释义，保留添加时间 |
+| `PATCH /api/entries/{id}` | 局部修改 `spelling`、`definition`；省略字段保留原值，空字符串清空释义 |
+| `DELETE /api/entries/{id}` | 删除词条，返回受影响关系组的 `updatedGroupIds` 和 `deletedGroupIds` |
+| `GET /api/stats` | 返回整本生词本的词条数与关系组数 |
 | `GET /api/group-types` | 按固定顺序返回七种关系类型 |
 | `GET /api/groups` | 返回全部关系组，默认最近修改在前；可用 `type` 筛选单一类型，用 `sort` 指定时间排序；无组为 `[]` |
+| `POST /api/groups` | 使用完整 `memberIds`、`type`、可选 `note` 建组 |
 | `POST /api/entries/{id}/groups` | JSON `{ "type": "近义", "memberIds": [2, 3], "note": "共享说明" }`；路径中的词条自动加入，说明可省略，重复成员去重 |
 | `GET /api/entries/{id}/groups` | 该词条所属的完整关系组数组，按类型及创建时间排序；无组为 `[]`，词条不存在为 404 |
 | `GET /api/groups/{id}` | 关系组详情，不存在为 404 |
 | `PUT /api/groups/{id}` | 修改类型、说明及完整成员集合，冲突返回已有组 |
+| `PATCH /api/groups/{id}` | 局部修改 `type`、`note` 或完整 `memberIds`；省略字段保留原值 |
 | `DELETE /api/groups/{id}` | 删除关系组并保留所有词条 |
 
 词条返回 `id`、`spelling`、`definition`、`createdAt` 和 `updatedAt`（UTC RFC 3339）。创建成功为 201；拼写为空为 400；重复为 409，响应包含 `error` 和 `existingEntry`，不会覆盖原词条。
@@ -137,3 +143,5 @@ go test ./...
 ## 当前范围
 
 词条收录见 [issue #2](https://github.com/Myraxion/wordweave/issues/2)，搜索见 [issue #4](https://github.com/Myraxion/wordweave/issues/4)，关系组创建见 [issue #5](https://github.com/Myraxion/wordweave/issues/5)，组编辑及删除见 [issue #7](https://github.com/Myraxion/wordweave/issues/7)，关系说明搜索与类型浏览见 [issue #8](https://github.com/Myraxion/wordweave/issues/8)，词条删除见 [issue #9](https://github.com/Myraxion/wordweave/issues/9)。当前数据库版本为 3，词条与关系组分别由 `0001_entries.sql`、`0002_groups.sql` 建立，`0003_updated_at.sql` 为两者增加可空的修改时间字段。
+
+完整调用契约、版本条件与示例见 [HTTP 自动化调用](docs/http-api.md) 和 [OpenAPI 规范](docs/openapi.json)。

@@ -148,3 +148,33 @@ test('collecting an entry preserves an unrelated group draft', async () => {
     assert.equal(await page.locator('#group-note').inputValue(), 'group draft')
   } finally { await browser?.close(); server.kill() }
 })
+
+test('stale entry edit sends its version and preserves the draft', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5185', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5185')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage()
+    let writes = 0
+    await page.route('**/api/**', async route => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/api/entries/1' && route.request().method() === 'PUT') {
+        writes++
+        assert.equal(route.request().headers()['if-match'], '"entry-version"')
+        return route.fulfill({ status: 412, json: { code: 'version_conflict', error: '内容已变化，请重新读取后再操作。' } })
+      }
+      if (path === '/api/entries/1') return route.fulfill({ headers: { etag: '"entry-version"' }, json: { id: 1, spelling: 'apple', definition: 'old', createdAt: '2025-01-01T00:00:00Z', updatedAt: null } })
+      if (path === '/api/entries/1/groups') return route.fulfill({ json: [] })
+      if (path === '/api/stats') return route.fulfill({ json: { entries: 1, groups: 0 } })
+      throw new Error(`Unexpected API: ${path}`)
+    })
+    await page.goto('http://127.0.0.1:5185/entries/1')
+    await page.getByRole('button', { name: /编辑词条/ }).click()
+    await page.locator('#definition').fill('draft')
+    await page.getByRole('button', { name: /保存修改/ }).click()
+    await page.getByText('内容已变化，请重新读取后再操作。').waitFor()
+    assert.equal(await page.locator('#definition').inputValue(), 'draft')
+    assert.equal(writes, 1)
+  } finally { await browser?.close(); server.kill() }
+})
