@@ -7,7 +7,7 @@ import EntryDetail from './pages/EntryDetail.vue'
 import GroupEdit from './pages/GroupEdit.vue'
 import RelationBrowse from './pages/RelationBrowse.vue'
 import './style.css'
-import { confirmDiscard, hasUnsavedChanges, isSaving } from './leaveProtection'
+import { blockWhileSaving, confirmDiscard, hasUnsavedChanges, isSaving } from './leaveProtection'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -24,10 +24,7 @@ const router = createRouter({
 })
 
 router.beforeEach(() => {
-  if (isSaving()) {
-    window.dispatchEvent(new Event('save-navigation-blocked'))
-    return false
-  }
+  if (blockWhileSaving()) return false
   return !hasUnsavedChanges() || confirmDiscard()
 })
 window.addEventListener('beforeunload', event => {

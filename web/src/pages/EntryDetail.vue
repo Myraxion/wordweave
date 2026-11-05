@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { confirmDiscard, hasUnsavedChanges, useLeaveProtection } from '../leaveProtection'
+import { blockWhileSaving, confirmDiscard, hasUnsavedChanges, useLeaveProtection } from '../leaveProtection'
 import GroupCard from '../components/GroupCard.vue'
 import GroupForm from '../components/GroupForm.vue'
 import {
@@ -86,6 +86,7 @@ async function load() {
 
 function startEditing() {
   if (!entry.value) return
+  if (blockWhileSaving()) return
   if (creatingGroup.value && hasUnsavedChanges() && !confirmDiscard()) return
   creatingGroup.value = false
   formSpelling.value = entry.value.spelling
@@ -120,7 +121,7 @@ async function save() {
       formDefinition.value,
     )
     entry.value = updated
-    groups.value = await listEntryGroups(props.id)
+    groups.value = groups.value.map(group => ({ ...group, members: group.members.map(member => member.id === updated.id ? updated : member) }))
     editing.value = false
   } catch (err) {
     formError.value = errorMessage(err)

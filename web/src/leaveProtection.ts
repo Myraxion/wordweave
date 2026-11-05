@@ -23,3 +23,9 @@ export function hasUnsavedChanges() {
 export function isSaving() {
   return [...saves].some(check => check())
 }
+
+export function blockWhileSaving() {
+  if (!isSaving()) return false
+  window.dispatchEvent(new Event('save-navigation-blocked'))
+  return true
+}

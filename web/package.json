@@ -8,7 +8,7 @@
     "typecheck": "vue-tsc --noEmit",
     "build": "npm run typecheck && vite build",
     "pretest": "npm run build",
-    "test": "node --test timeline.test.mjs readability.test.mjs collection.test.mjs group-draft.test.mjs"
+    "test": "node --test timeline.test.mjs readability.test.mjs collection.test.mjs group-draft.test.mjs save-navigation.test.mjs"
   },
   "dependencies": {
     "vue": "3.5.44",
