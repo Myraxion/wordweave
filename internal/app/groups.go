@@ -1,6 +1,7 @@
 package app
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
@@ -162,6 +163,61 @@ func (a *App) addGroup(ctx context.Context, kind, note string, memberIDs []int64
 		return Group{}, err
 	}
 	return a.getGroup(ctx, id)
+}
+
+type groupBrowseOptions struct {
+	kind, sort    string
+	limit, offset int
+}
+
+func (a *App) searchGroups(ctx context.Context, query string) ([]Group, error) {
+	return a.queryGroups(ctx, "instr(lower(g.note), lower(?)) > 0", query)
+}
+
+func (a *App) browseGroupRecords(ctx context.Context, options groupBrowseOptions) ([]Group, error) {
+	where := "1 = 1"
+	var args []any
+	if options.kind != "" {
+		where = "g.type = ?"
+		args = append(args, options.kind)
+	}
+	byCreated := options.sort == "created_asc" || options.sort == "created_desc"
+	ascending := options.sort == "created_asc" || options.sort == "updated_asc"
+	if options.limit > 0 {
+		stamp := "COALESCE(g.updated_at, g.created_at)"
+		if byCreated {
+			stamp = "g.created_at"
+		}
+		direction := "DESC"
+		if ascending {
+			direction = "ASC"
+		}
+		where = "g.id IN (SELECT g.id FROM relation_groups g WHERE " + where + " ORDER BY rtrim(" + stamp + ", 'Z') " + direction + ", g.id " + direction + " LIMIT ? OFFSET ?)"
+		args = append(args, options.limit, options.offset)
+	}
+	groups, err := a.queryGroups(ctx, where, args...)
+	if err != nil {
+		return nil, err
+	}
+	groupTime := func(group Group) string {
+		stamp := group.CreatedAt
+		if !byCreated && group.UpdatedAt != nil {
+			stamp = *group.UpdatedAt
+		}
+		// UTC RFC3339Nano strings sort chronologically without their variable-position Z suffix.
+		return strings.TrimSuffix(stamp, "Z")
+	}
+	slices.SortFunc(groups, func(a, b Group) int {
+		order := cmp.Compare(groupTime(a), groupTime(b))
+		if order == 0 {
+			order = cmp.Compare(a.ID, b.ID)
+		}
+		if !ascending {
+			order = -order
+		}
+		return order
+	})
+	return groups, nil
 }
 
 func (a *App) getGroup(ctx context.Context, id int64) (Group, error) {

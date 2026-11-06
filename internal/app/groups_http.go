@@ -1,12 +1,10 @@
 package app
 
 import (
-	"cmp"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -20,7 +18,7 @@ func (a *App) search(w http.ResponseWriter, r *http.Request) {
 	}
 	groups := []Group{}
 	if query != "" {
-		groups, err = a.queryGroups(r.Context(), "instr(lower(g.note), lower(?)) > 0", query)
+		groups, err = a.searchGroups(r.Context(), query)
 		if err != nil {
 			internalError(w, err)
 			return
@@ -33,63 +31,28 @@ func (a *App) search(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) browseGroups(w http.ResponseWriter, r *http.Request) {
-	where := "1 = 1"
-	var args []any
-	if kind := r.URL.Query().Get("type"); kind != "" {
-		where = "g.type = ?"
-		args = append(args, kind)
-	}
-	sortOrder := r.URL.Query().Get("sort")
+	options := groupBrowseOptions{kind: r.URL.Query().Get("type"), sort: r.URL.Query().Get("sort")}
 	if raw := r.URL.Query().Get("limit"); raw != "" {
 		limit, err := strconv.Atoi(raw)
 		if err != nil || limit < 1 || limit > 500 {
 			writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的分页参数。"})
 			return
 		}
-		offset := 0
+		options.limit = limit
 		if value := r.URL.Query().Get("offset"); value != "" {
-			offset, err = strconv.Atoi(value)
+			offset, err := strconv.Atoi(value)
 			if err != nil || offset < 0 {
 				writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的分页参数。"})
 				return
 			}
+			options.offset = offset
 		}
-		stamp := "COALESCE(g.updated_at, g.created_at)"
-		if sortOrder == "created_asc" || sortOrder == "created_desc" {
-			stamp = "g.created_at"
-		}
-		direction := "DESC"
-		if sortOrder == "created_asc" || sortOrder == "updated_asc" {
-			direction = "ASC"
-		}
-		where = "g.id IN (SELECT g.id FROM relation_groups g WHERE " + where + " ORDER BY rtrim(" + stamp + ", 'Z') " + direction + ", g.id " + direction + " LIMIT ? OFFSET ?)"
-		args = append(args, limit, offset)
 	}
-	groups, err := a.queryGroups(r.Context(), where, args...)
+	groups, err := a.browseGroupRecords(r.Context(), options)
 	if err != nil {
 		internalError(w, err)
 		return
 	}
-	byCreated := sortOrder == "created_asc" || sortOrder == "created_desc"
-	ascending := sortOrder == "created_asc" || sortOrder == "updated_asc"
-	groupTime := func(group Group) string {
-		stamp := group.CreatedAt
-		if !byCreated && group.UpdatedAt != nil {
-			stamp = *group.UpdatedAt
-		}
-		// UTC RFC3339Nano strings sort chronologically without their variable-position Z suffix.
-		return strings.TrimSuffix(stamp, "Z")
-	}
-	slices.SortFunc(groups, func(a, b Group) int {
-		order := cmp.Compare(groupTime(a), groupTime(b))
-		if order == 0 {
-			order = cmp.Compare(a.ID, b.ID)
-		}
-		if !ascending {
-			order = -order
-		}
-		return order
-	})
 	writeJSON(w, http.StatusOK, groups)
 }
 

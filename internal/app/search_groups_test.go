@@ -126,6 +126,16 @@ func TestBrowseGroupsTimeSortsAndTypeFilter(t *testing.T) {
 				if !reflect.DeepEqual(ids, want) {
 					t.Fatalf("type %q: got %v, want %v", kind, ids, want)
 				}
+				var paged []group
+				for offset := 0; offset < len(got); offset += 2 {
+					var page []group
+					query := url.Values{"sort": {tc.sort}, "type": {kind}, "limit": {"2"}, "offset": {strconv.Itoa(offset)}}
+					request(t, s, "GET", "/api/groups?"+query.Encode(), "", http.StatusOK, &page)
+					paged = append(paged, page...)
+				}
+				if !reflect.DeepEqual(paged, got) {
+					t.Fatalf("type %q: paginated groups differ: got %+v, want %+v", kind, paged, got)
+				}
 			}
 		})
 	}
