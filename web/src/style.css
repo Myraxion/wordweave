@@ -833,11 +833,6 @@ textarea {
 .group-actions {
   flex-wrap: wrap;
 }
-.collection-form > .entry-collector {
-  margin-bottom: 32px;
-  padding-bottom: 24px;
-  border-bottom: 1px solid var(--divider);
-}
 .entry-collector .form-actions {
   flex-wrap: wrap;
   margin-top: 24px;
@@ -848,8 +843,14 @@ textarea {
   min-height: 96px;
 }
 .collection-feedback {
-  margin-top: 16px;
-  font-size: 14px;
+  margin-top: 12px;
+  min-height: 1.5em;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+.collection-feedback.is-saved {
   color: var(--accent);
 }
 .delete-group {
@@ -1401,7 +1402,9 @@ textarea {
   grid-template-columns: minmax(0, 1fr);
   gap: 32px;
 }
-.collection-form > .entry-collector {
+.collection-form > .form-card {
+  max-width: none;
+  align-self: start;
   margin: 0;
 }
 .group-preparation { min-width: 0; }
@@ -1413,13 +1416,48 @@ textarea {
   overflow: hidden;
 }
 .save-hint { margin: 0; }
+.finish-collection { margin-right: auto; }
+.collection-form .entry-collector fieldset,
+.collection-form .group-preparation fieldset { margin-top: 18px; }
+.collection-form .group-members-task legend { color: var(--text); font-size: 15px; margin-bottom: 8px; }
+.collection-form .selected-members-empty,
+.collection-form .selected-members { margin-bottom: 28px; }
+.collection-form .selected-members-empty {
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 12px;
+  border: 1px dashed var(--control-border);
+  border-radius: 6px;
+  background: var(--surface-subtle);
+  font-size: 13px;
+}
+.collection-form .group-preparation .field label { margin-bottom: 8px; }
+.collection-form .group-preparation .field-hint { margin-top: 6px; }
+.member-selection { border-block: 1px solid var(--divider); padding-block: 20px; }
+.candidate-heading { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; color: var(--text); font-size: 14px; font-weight: 600; }
+.candidate-heading span + span { color: var(--text-secondary); font-size: 12px; font-weight: 400; }
+.collection-form .member-options { max-height: 280px; margin: 8px 0 12px; }
+.collection-form .member-options label { align-items: flex-start; min-height: 64px; }
+.collection-form .member-options input { margin-top: 5px; }
+.collection-form .member-options strong { font-family: Georgia, 'Times New Roman', serif; font-size: 16px; }
+.collection-form .member-options small { margin-top: 3px; font-size: 13px; }
+.collection-form .member-options .is-selected { background: var(--surface-selected); }
+.collection-form .member-options label:hover { background: var(--surface-hover); }
+.collection-form .group-relation-task fieldset { margin-top: 32px; }
+.collection-form .relation-fields { margin-top: 0; }
+.collection-form .group-relation-task .field + .field { margin-top: 28px; }
+.collection-form .group-actions { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 8px; }
+.collection-save-hint { min-width: 0; line-height: 1.3; overflow-wrap: anywhere; }
+.collection-form .button { min-height: 44px; }
+.group-actions-shortcut { display: none; }
+@media (max-width: 650px) {
+  .collection-form { gap: 24px; }
+  .collection-form .group-actions { gap: 8px; }
+  .collection-form .group-actions { grid-auto-rows: minmax(66px, auto); }
+  .group-actions-shortcut { display: inline-block; margin-top: 12px; min-height: 44px; }
+}
 @media (min-width: 1100px) {
   .collection-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-  .collection-form > .entry-collector {
-    padding: 0 32px 0 0;
-    border-bottom: 0;
-    border-right: 1px solid var(--divider);
-  }
 }
 
 .group-edit-workspace > h1,

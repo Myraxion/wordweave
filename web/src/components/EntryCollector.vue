@@ -4,13 +4,14 @@ import { confirmDiscard, protectedWrite } from '../leaveProtection'
 import { ApiError, createEntry, errorMessage, type Entry } from '../api'
 
 const props = defineProps<{ disabled?: boolean; inline?: boolean; initialSpelling?: string }>()
-const emit = defineEmits<{ selected: [entry: Entry]; busy: [value: boolean]; draft: [value: boolean]; cancel: [] }>()
+const emit = defineEmits<{ selected: [entry: Entry]; busy: [value: boolean]; draft: [value: boolean]; cancel: []; finish: [] }>()
 const spelling = ref(props.initialSpelling || '')
 const definition = ref('')
 const saving = ref(false)
 const error = ref('')
 const existing = ref<Entry>()
 const saved = ref<Entry>()
+const reused = ref(false)
 const spellingInput = ref<HTMLInputElement>()
 const hasDraft = computed(() => !!(spelling.value || definition.value))
 watch(hasDraft, value => emit('draft', value), { immediate: true })
@@ -29,8 +30,9 @@ function discard() {
   else clear()
 }
 
-function select(entry: Entry) {
+function select(entry: Entry, existingEntry = false) {
   saved.value = entry
+  reused.value = existingEntry
   clear()
   emit('selected', entry)
   void nextTick(() => spellingInput.value?.focus())
@@ -61,8 +63,11 @@ async function save() {
 <template>
   <section class="entry-collector" aria-labelledby="collect-entry-heading">
     <h2 id="collect-entry-heading">{{ inline ? '新增缺少的词条' : '收录词条' }}</h2>
-    <p class="field-hint">{{ inline ? '词条会独立保存，取消建组或编辑后仍保留。' : '词条会独立保存，并加入待建关系组；不建立关系也可以。' }}</p>
-    <p v-if="saved && !inline" class="collection-feedback" role="status">已选择 {{ saved.spelling }}，可继续收词或建立关系组。</p>
+    <p v-if="inline" class="field-hint">词条会独立保存，取消建组或编辑后仍保留。</p>
+    <p v-else class="subtitle collection-feedback" :class="{ 'is-saved': !!saved }" role="status" :tabindex="saved ? 0 : undefined">
+      <template v-if="saved">{{ reused ? '已选择已有词条' : '已收录' }} {{ saved.spelling }}，并加入待建关系组；词条已保存。</template>
+      <template v-else>词条会独立保存，并加入待建关系组；不建立关系也可以。</template>
+    </p>
     <fieldset :disabled="disabled || saving">
       <div class="field">
         <label for="new-member-spelling">词条拼写 <span class="required">必填</span></label>
@@ -74,9 +79,10 @@ async function save() {
       </div>
       <div v-if="error" class="notice error" role="alert">
         <p>{{ error }}</p>
-        <button v-if="existing" type="button" class="text-button" @click="select(existing)">选择已有词条：{{ existing.spelling }}</button>
+        <button v-if="existing" type="button" class="text-button" @click="select(existing, true)">选择已有词条：{{ existing.spelling }}</button>
       </div>
       <div class="form-actions">
+        <button v-if="!inline" type="button" class="button secondary finish-collection" @click="emit('finish')">结束收录</button>
         <button v-if="inline" type="button" class="button secondary" @click="discard">取消新增</button>
         <button v-else type="button" class="button secondary" :disabled="!hasDraft" @click="discard">清空输入</button>
         <button type="button" class="button primary" @click="save">{{ saving ? '正在收录…' : '收录词条' }}</button>

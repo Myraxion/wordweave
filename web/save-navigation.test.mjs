@@ -139,7 +139,7 @@ test('collecting an entry preserves an unrelated group draft', async () => {
     await page.getByRole('link', { name: /关系浏览/ }).click()
     await page.getByText('正在保存，请稍候').waitFor()
     release()
-    await page.getByText('已选择 apple', { exact: false }).waitFor()
+    await page.getByText('已收录 apple', { exact: false }).waitFor()
     assert.equal(await page.getByLabel('词条拼写').inputValue(), '')
     assert.equal(await page.locator('#group-note').inputValue(), 'group draft')
     assert.match(page.url(), /\/entries\/new$/)
