@@ -85,3 +85,33 @@ test('relation browser loads groups in pages', async () => {
     assert.deepEqual(offsets, [0, 50])
   } finally { await browser?.close(); server.kill() }
 })
+
+test('masonry layout does not repeatedly reflow for every card', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5199', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5199')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
+    const entries = Array.from({ length: 150 }, (_, i) => ({ id: i + 1, spelling: `word${i}`, definition: 'definition', createdAt: '2026-01-01T00:00:00Z', updatedAt: null }))
+    await page.route('**/api/**', route => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/api/stats') return route.fulfill({ json: { entries: entries.length, groups: 0 } })
+      if (path === '/api/search') return route.fulfill({ json: { entries, groups: [] } })
+      return route.abort()
+    })
+    await page.goto('http://127.0.0.1:5199/')
+    await page.locator('.compact-entry-row').first().waitFor()
+    const cdp = await page.context().newCDPSession(page)
+    await cdp.send('Performance.enable')
+    const metrics = async () => Object.fromEntries((await cdp.send('Performance.getMetrics')).metrics.map(x => [x.name, x.value]))
+    const before = await metrics()
+    await page.getByRole('button', { name: '瀑布流' }).click()
+    await page.locator('.masonry-grid').waitFor()
+    await page.waitForTimeout(300)
+    const after = await metrics()
+    assert.ok(after.LayoutCount - before.LayoutCount < 30, `too many layouts: ${after.LayoutCount - before.LayoutCount}`)
+    const overlaps = await page.locator('.compact-entry-row').evaluateAll(cards => cards.some((card, i) => cards.slice(i + 1).some(other => { const a = card.getBoundingClientRect(), b = other.getBoundingClientRect(); return a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1 })))
+    assert.equal(overlaps, false)
+  } finally { await browser?.close(); server.kill() }
+})

@@ -4,7 +4,7 @@ import { ApiError, createGroup, deleteGroup, errorMessage, getGroupTypes, listEn
 import { confirmDiscard, useLeaveProtection } from '../leaveProtection'
 import EntryCollector from './EntryCollector.vue'
 
-const props = defineProps<{ entry?: Entry; group?: Group; initialType?: string; standalone?: boolean; collecting?: boolean }>()
+const props = defineProps<{ entry?: Entry; group?: Group; initialType?: string; standalone?: boolean; collecting?: boolean; disabled?: boolean }>()
 const emit = defineEmits<{ saved: [group: Group]; deleted: []; cancel: [] }>()
 const types = ref<string[]>([])
 const initialType = ref(props.group?.type || props.initialType || '')
@@ -18,7 +18,7 @@ const searchError = ref('')
 const typesError = ref('')
 const saving = ref(false)
 const deleting = ref(false)
-const busy = computed(() => saving.value || entrySaving.value || deleting.value)
+const busy = computed(() => !!props.disabled || saving.value || entrySaving.value || deleting.value)
 const error = ref('')
 const existingGroup = ref<Group>()
 const addingEntry = ref(false)

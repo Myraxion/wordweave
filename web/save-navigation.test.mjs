@@ -178,3 +178,46 @@ test('stale entry edit sends its version and preserves the draft', async () => {
     assert.equal(writes, 1)
   } finally { await browser?.close(); server.kill() }
 })
+
+test('deleting an entry protects the group draft before deletion and while pending', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5198', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5198')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage()
+    const entry = { id: 1, spelling: 'apple', definition: '', createdAt: '2025-01-01T00:00:00Z', updatedAt: null }
+    let deleted = 0, accept = false, release
+    const pending = new Promise(resolve => { release = resolve })
+    await page.route('**/api/**', async route => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/api/entries/1' && route.request().method() === 'DELETE') { deleted++; await pending; return route.fulfill({ json: { deleted: true } }) }
+      if (path === '/api/entries/1/groups') return route.fulfill({ json: [] })
+      if (path === '/api/entries/1') return route.fulfill({ json: entry })
+      if (path === '/api/entries') return route.fulfill({ json: [entry] })
+      if (path === '/api/group-types') return route.fulfill({ json: ['近义'] })
+      if (path === '/api/stats') return route.fulfill({ json: { entries: 1, groups: 0 } })
+      if (path === '/api/search') return route.fulfill({ json: { entries: [], groups: [] } })
+      return route.abort()
+    })
+    page.on('dialog', dialog => void (accept ? dialog.accept() : dialog.dismiss()))
+    await page.goto('http://127.0.0.1:5198/entries/1')
+    await page.getByRole('button', { name: '＋ 建立关系组' }).click()
+    await page.locator('#group-note').fill('draft')
+    await page.getByRole('button', { name: '删除词条' }).click()
+    await page.getByRole('button', { name: '确认删除' }).click()
+    assert.equal(deleted, 0)
+    assert.equal(await page.locator('#group-note').inputValue(), 'draft')
+    accept = true
+    await page.getByRole('button', { name: '确认删除' }).click()
+    await page.getByRole('button', { name: '正在删除…' }).waitFor()
+    assert.equal(await page.locator('#group-note').isDisabled(), true)
+    assert.equal(await page.getByRole('button', { name: '取消建组' }).isDisabled(), true)
+    await page.getByRole('link', { name: /全部词条/ }).first().click()
+    await page.getByText('正在保存，请稍候').waitFor()
+    assert.match(page.url(), /entries\/1$/)
+    release()
+    await page.waitForURL('http://127.0.0.1:5198/')
+    assert.equal(deleted, 1)
+  } finally { await browser?.close(); server.kill() }
+})

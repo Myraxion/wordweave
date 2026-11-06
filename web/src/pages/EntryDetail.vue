@@ -30,6 +30,7 @@ const conflictGroup = ref<Group>()
 const deleting = ref(false)
 
 async function startDelete() {
+  if (blockWhileSaving()) return
   deleteError.value = ''
   conflictGroup.value = undefined
   try {
@@ -41,11 +42,15 @@ async function startDelete() {
 }
 
 async function removeEntry() {
+  if (blockWhileSaving() || (hasUnsavedChanges() && !confirmDiscard())) return
   deleting.value = true
   deleteError.value = ''
   conflictGroup.value = undefined
   try {
     await deleteEntry(props.id, entry.value?.etag)
+    creatingGroup.value = false
+    await nextTick()
+    deleting.value = false
     await router.push('/')
   } catch (err) {
     deleteError.value = errorMessage(err)
@@ -68,7 +73,7 @@ const existingEntry = ref<Entry>()
 const editButton = ref<HTMLButtonElement>()
 const spellingInput = ref<HTMLInputElement>()
 const dirty = computed(() => editing.value && !!entry.value && (formSpelling.value !== entry.value.spelling || formDefinition.value !== entry.value.definition))
-useLeaveProtection(dirty, saving)
+useLeaveProtection(dirty, computed(() => saving.value || deleting.value))
 
 async function load() {
   loading.value = true
@@ -163,11 +168,11 @@ async function groupSaved() {
           </p>
         </div>
         <div class="heading-actions">
-          <button class="button primary" type="button" @click="creatingGroup = true">＋ 建立关系组</button>
-          <button ref="editButton" class="button secondary" type="button" @click="startEditing">
+          <button class="button primary" type="button" :disabled="deleting" @click="creatingGroup = true">＋ 建立关系组</button>
+          <button ref="editButton" class="button secondary" type="button" :disabled="deleting" @click="startEditing">
             ✎ 编辑词条
           </button>
-          <button class="button secondary" type="button" @click="startDelete">删除词条</button>
+          <button class="button secondary" type="button" :disabled="deleting" @click="startDelete">删除词条</button>
           <RouterLink class="button secondary" to="/entries/new"
             >＋ 继续收词</RouterLink
           >
@@ -192,7 +197,7 @@ async function groupSaved() {
           <button class="button primary" type="button" :disabled="deleting" @click="removeEntry">{{ deleting ? '正在删除…' : '确认删除' }}</button>
         </div>
       </section>
-      <GroupForm v-if="creatingGroup" :entry="entry" @saved="groupSaved" @cancel="creatingGroup = false" />
+      <GroupForm v-if="creatingGroup" :entry="entry" :disabled="deleting" @saved="groupSaved" @cancel="creatingGroup = false" />
       <section class="detail-card">
         <h2>释义<span class="section-line"></span></h2>
         <p class="definition" :class="{ muted: !entry.definition }">

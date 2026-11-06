@@ -24,11 +24,12 @@ watchPostEffect(onCleanup => {
     const columns = style.gridTemplateColumns.split(' ').length
     const gap = parseFloat(style.columnGap)
     const bottoms = Array<number>(columns).fill(0)
+    const heights = cards.map(card => Math.ceil(card.getBoundingClientRect().height))
 
     // Place cards in source order into the shortest column without moving DOM nodes.
-    for (const card of cards) {
+    for (const [index, card] of cards.entries()) {
       const column = bottoms.indexOf(Math.min(...bottoms))
-      const height = Math.ceil(card.getBoundingClientRect().height)
+      const height = heights[index]!
       card.style.gridColumn = String(column + 1)
       card.style.gridRow = `${bottoms[column]! + 1} / span ${height}`
       bottoms[column] = bottoms[column]! + height + gap
