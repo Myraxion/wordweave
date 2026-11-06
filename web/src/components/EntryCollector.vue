@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import { confirmDiscard } from '../leaveProtection'
+import { confirmDiscard, protectedWrite } from '../leaveProtection'
 import { ApiError, createEntry, errorMessage, type Entry } from '../api'
 
 const props = defineProps<{ disabled?: boolean; inline?: boolean; initialSpelling?: string }>()
@@ -43,17 +43,18 @@ async function save() {
     error.value = '请输入词条拼写。'
     return
   }
-  saving.value = true
   emit('busy', true)
+  let collected: Entry
   try {
-    select(await createEntry(spelling.value, definition.value))
+    collected = await protectedWrite(saving, () => createEntry(spelling.value, definition.value), () => {})
   } catch (err) {
     error.value = errorMessage(err)
     if (err instanceof ApiError) existing.value = err.body.existingEntry
+    return
   } finally {
-    saving.value = false
     emit('busy', false)
   }
+  select(collected)
 }
 </script>
 

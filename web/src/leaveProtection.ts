@@ -1,4 +1,4 @@
-import { onBeforeUnmount, watch, type Ref } from 'vue'
+import { nextTick, onBeforeUnmount, watch, type Ref } from 'vue'
 
 const drafts = new Set<() => boolean>()
 const saves = new Set<() => boolean>()
@@ -28,4 +28,26 @@ export function blockWhileSaving() {
   if (!isSaving()) return false
   window.dispatchEvent(new Event('save-navigation-blocked'))
   return true
+}
+
+// Keep a successful write protected until its draft has been cleared and Vue
+// has unmounted any discarded nested drafts. Follow-up navigation happens after
+// the protection is released; it cannot turn a successful write into a failure.
+export async function protectedWrite<T>(
+  busy: Ref<boolean>,
+  write: () => Promise<T>,
+  clear: (result: T) => void,
+  after?: (result: T) => void | Promise<void>,
+): Promise<T> {
+  busy.value = true
+  let result: T
+  try {
+    result = await write()
+    clear(result)
+    await nextTick()
+  } finally {
+    busy.value = false
+  }
+  await after?.(result)
+  return result
 }

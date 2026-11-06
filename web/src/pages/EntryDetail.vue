@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { blockWhileSaving, confirmDiscard, hasUnsavedChanges, useLeaveProtection } from '../leaveProtection'
+import { blockWhileSaving, confirmDiscard, hasUnsavedChanges, protectedWrite, useLeaveProtection } from '../leaveProtection'
 import GroupCard from '../components/GroupCard.vue'
 import PronunciationButton from '../components/PronunciationButton.vue'
 import GroupForm from '../components/GroupForm.vue'
@@ -43,21 +43,18 @@ async function startDelete() {
 
 async function removeEntry() {
   if (blockWhileSaving() || (hasUnsavedChanges() && !confirmDiscard())) return
-  deleting.value = true
   deleteError.value = ''
   conflictGroup.value = undefined
   try {
-    await deleteEntry(props.id, entry.value?.etag)
-    creatingGroup.value = false
-    await nextTick()
-    deleting.value = false
-    await router.push('/')
+    await protectedWrite(deleting, () => deleteEntry(props.id, entry.value?.etag),
+      () => { creatingGroup.value = false },
+    )
   } catch (err) {
     deleteError.value = errorMessage(err)
     if (err instanceof ApiError) conflictGroup.value = err.body.existingGroup
-  } finally {
-    deleting.value = false
+    return
   }
+  await router.push('/')
 }
 const sections = computed(() => [...new Set(groups.value.map(group => group.type))].map(type => ({
   type,
@@ -119,24 +116,19 @@ async function save() {
     formError.value = '请输入词条拼写。'
     return
   }
-  saving.value = true
+  const currentEntry = entry.value
   try {
-    const updated = await updateEntry(
-      props.id,
-      formSpelling.value,
-      formDefinition.value,
-      entry.value.etag,
+    await protectedWrite(saving,
+      () => updateEntry(props.id, formSpelling.value, formDefinition.value, currentEntry.etag),
+      updated => {
+        entry.value = updated
+        groups.value = groups.value.map(group => ({ ...group, members: group.members.map(member => member.id === updated.id ? updated : member) }))
+        editing.value = false
+      },
     )
-    entry.value = updated
-    groups.value = groups.value.map(group => ({ ...group, members: group.members.map(member => member.id === updated.id ? updated : member) }))
-    editing.value = false
   } catch (err) {
     formError.value = errorMessage(err)
-    if (err instanceof ApiError) {
-      existingEntry.value = err.body.existingEntry
-    }
-  } finally {
-    saving.value = false
+    if (err instanceof ApiError) existingEntry.value = err.body.existingEntry
   }
 }
 
@@ -145,6 +137,7 @@ onMounted(load)
 async function groupSaved() {
   creatingGroup.value = false
   await load()
+  if (error.value) error.value = '关系组已保存，但读取失败。请重试读取。'
 }
 </script>
 

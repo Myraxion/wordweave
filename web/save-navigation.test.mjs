@@ -187,11 +187,11 @@ test('deleting an entry protects the group draft before deletion and while pendi
     browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
     const page = await browser.newPage()
     const entry = { id: 1, spelling: 'apple', definition: '', createdAt: '2025-01-01T00:00:00Z', updatedAt: null }
-    let deleted = 0, accept = false, release
+    let deleted = 0, accept = false, release, fail = true
     const pending = new Promise(resolve => { release = resolve })
     await page.route('**/api/**', async route => {
       const path = new URL(route.request().url()).pathname
-      if (path === '/api/entries/1' && route.request().method() === 'DELETE') { deleted++; await pending; return route.fulfill({ json: { deleted: true } }) }
+      if (path === '/api/entries/1' && route.request().method() === 'DELETE') { deleted++; if (fail) return route.fulfill({ status: 500, json: { error: '删除失败' } }); await pending; return route.fulfill({ json: { deleted: true } }) }
       if (path === '/api/entries/1/groups') return route.fulfill({ json: [] })
       if (path === '/api/entries/1') return route.fulfill({ json: entry })
       if (path === '/api/entries') return route.fulfill({ json: [entry] })
@@ -210,6 +210,10 @@ test('deleting an entry protects the group draft before deletion and while pendi
     assert.equal(await page.locator('#group-note').inputValue(), 'draft')
     accept = true
     await page.getByRole('button', { name: '确认删除' }).click()
+    await page.getByText('删除失败').waitFor()
+    assert.equal(await page.locator('#group-note').inputValue(), 'draft')
+    fail = false
+    await page.getByRole('button', { name: '确认删除' }).click()
     await page.getByRole('button', { name: '正在删除…' }).waitFor()
     assert.equal(await page.locator('#group-note').isDisabled(), true)
     assert.equal(await page.getByRole('button', { name: '取消建组' }).isDisabled(), true)
@@ -218,6 +222,38 @@ test('deleting an entry protects the group draft before deletion and while pendi
     assert.match(page.url(), /entries\/1$/)
     release()
     await page.waitForURL('http://127.0.0.1:5198/')
-    assert.equal(deleted, 1)
+    assert.equal(deleted, 2)
+  } finally { await browser?.close(); server.kill() }
+})
+
+test('successful group creation reports refresh failure without submitting twice', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5200', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5200')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage()
+    const entries = [{ id: 1, spelling: 'apple', definition: '', createdAt: '2025-01-01T00:00:00Z' }, { id: 2, spelling: 'pear', definition: '' }]
+    let writes = 0, failRefresh = false
+    await page.route('**/api/**', async route => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/api/entries/1/groups' && route.request().method() === 'POST') { writes++; failRefresh = true; return route.fulfill({ json: { id: 7, type: '近义', note: '', members: entries } }) }
+      if (path === '/api/entries/1/groups') return route.fulfill({ json: [] })
+      if (path === '/api/entries/1') return failRefresh ? route.fulfill({ status: 500, json: { error: '读取失败' } }) : route.fulfill({ json: entries[0] })
+      if (path === '/api/entries') return route.fulfill({ json: entries })
+      if (path === '/api/group-types') return route.fulfill({ json: ['近义'] })
+      if (path === '/api/stats') return route.fulfill({ json: { entries: 2, groups: 1 } })
+      throw new Error(`Unexpected API: ${path}`)
+    })
+    await page.goto('http://127.0.0.1:5200/entries/1')
+    await page.getByRole('button', { name: '＋ 建立关系组' }).click()
+    await page.getByRole('checkbox', { name: /pear/ }).check()
+    await page.locator('#group-type').selectOption('近义')
+    await page.getByRole('button', { name: '保存关系组' }).click()
+    await page.getByText('关系组已保存，但读取失败。请重试读取。').waitFor()
+    failRefresh = false
+    await page.getByRole('button', { name: '重试' }).click()
+    await page.getByRole('button', { name: '＋ 建立关系组' }).waitFor()
+    assert.equal(writes, 1)
   } finally { await browser?.close(); server.kill() }
 })

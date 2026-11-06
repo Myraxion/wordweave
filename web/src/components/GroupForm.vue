@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { ApiError, createGroup, deleteGroup, errorMessage, getGroupTypes, listEntries, updateGroup, type Entry, type Group } from '../api'
-import { confirmDiscard, useLeaveProtection } from '../leaveProtection'
+import { confirmDiscard, protectedWrite, useLeaveProtection } from '../leaveProtection'
 import EntryCollector from './EntryCollector.vue'
 
 const props = defineProps<{ entry?: Entry; group?: Group; initialType?: string; standalone?: boolean; collecting?: boolean; disabled?: boolean }>()
@@ -120,19 +120,14 @@ function cancelForm() {
 }
 
 async function remove() {
-  if (!props.group || busy.value || !window.confirm('确定删除整个关系组吗？所有成员词条都会保留。')) return
+  const group = props.group
+  if (!group || busy.value || !window.confirm('确定删除整个关系组吗？所有成员词条都会保留。')) return
   error.value = ''
   existingGroup.value = undefined
-  deleting.value = true
   try {
-    await deleteGroup(props.group.id, props.group.etag)
-    resetDraft()
-    deleting.value = false
-    emit('deleted')
+    await protectedWrite(deleting, () => deleteGroup(group.id, group.etag), resetDraft, () => emit('deleted'))
   } catch (err) {
     error.value = errorMessage(err)
-  } finally {
-    deleting.value = false
   }
 }
 
@@ -140,29 +135,28 @@ async function save() {
   if (addingEntry.value || collectionDraft.value || (!props.group && memberCount.value < 2)) return
   error.value = ''
   existingGroup.value = undefined
-  saving.value = true
-  try {
-    if (props.group && selected.value.length < 2) {
-      if (window.confirm('剩余成员不足两个，保存后将删除整个关系组；所有词条都会保留。确定继续吗？')) {
-        await deleteGroup(props.group.id, props.group.etag)
-        resetDraft()
-        saving.value = false
-        emit('deleted')
-      }
-      return
+  const original = props.group
+  if (original && selected.value.length < 2) {
+    if (!window.confirm('剩余成员不足两个，保存后将删除整个关系组；所有词条都会保留。确定继续吗？')) return
+    try {
+      await protectedWrite(saving, () => deleteGroup(original.id, original.etag), resetDraft, () => emit('deleted'))
+    } catch (err) {
+      error.value = errorMessage(err)
     }
-    const ids = selected.value.map(member => member.id)
-    const group = props.group
-      ? await updateGroup(props.group.id, type.value, note.value, ids, props.group.etag)
-      : await createGroup(props.entry?.id ?? ids[0]!, type.value, note.value, ids)
-    resetDraft()
-    saving.value = false
-    emit('saved', group)
+    return
+  }
+  const ids = selected.value.map(member => member.id)
+  try {
+    await protectedWrite(saving,
+      () => original
+        ? updateGroup(original.id, type.value, note.value, ids, original.etag)
+        : createGroup(props.entry?.id ?? ids[0]!, type.value, note.value, ids),
+      resetDraft,
+      group => emit('saved', group),
+    )
   } catch (err) {
     error.value = errorMessage(err)
     if (err instanceof ApiError) existingGroup.value = err.body.existingGroup
-  } finally {
-    saving.value = false
   }
 }
 

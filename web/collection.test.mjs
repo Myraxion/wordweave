@@ -245,3 +245,36 @@ test('entry editing protects changes and restores keyboard focus', async () => {
     assert.equal(await edit.evaluate(el => document.activeElement === el), true)
   } finally { await browser?.close(); server.kill() }
 })
+
+test('inline entry creation releases group editing and preserves the group draft', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5199', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5199')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage()
+    const entries = [{ id: 1, spelling: 'apple', definition: '' }, { id: 2, spelling: 'pear', definition: '' }]
+    const group = { id: 7, type: '近义', note: 'old', members: entries.slice() }
+    await page.route('**/api/**', async route => {
+      const path = new URL(route.request().url()).pathname
+      if (path === '/api/entries' && route.request().method() === 'POST') {
+        const entry = { id: 3, ...route.request().postDataJSON() }; entries.push(entry); return route.fulfill({ json: entry })
+      }
+      if (path === '/api/entries') return route.fulfill({ json: entries })
+      if (path === '/api/groups/7') return route.fulfill({ json: group })
+      if (path === '/api/group-types') return route.fulfill({ json: ['近义'] })
+      if (path === '/api/stats') return route.fulfill({ json: { entries: entries.length, groups: 1 } })
+      throw new Error(`Unexpected API: ${path}`)
+    })
+    await page.goto('http://127.0.0.1:5199/groups/7')
+    await page.locator('#group-note').fill('draft')
+    await page.getByRole('button', { name: '＋ 新增缺少的词条' }).click()
+    await page.getByLabel('词条拼写').fill('plum')
+    await page.getByRole('button', { name: '收录词条', exact: true }).click()
+    await page.getByText('plum', { exact: true }).first().waitFor()
+    assert.equal(await page.locator('#group-note').inputValue(), 'draft')
+    await page.locator('#group-note').fill('draft retained')
+    assert.equal(await page.locator('#group-note').inputValue(), 'draft retained')
+    assert.equal(await page.getByRole('button', { name: '保存关系组' }).isEnabled(), true)
+  } finally { await browser?.close(); server.kill() }
+})
