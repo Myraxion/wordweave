@@ -74,8 +74,8 @@ export const deleteEntry = (id: string | number, etag?: string) =>
 export const getGroupTypes = () => request<string[]>('/group-types')
 export const search = (sort: string, query: string) =>
   request<{ entries: Entry[]; groups: Group[] }>(`/search?${new URLSearchParams({ sort, q: query })}`)
-export const listGroupsByType = (type: string, sort: string) =>
-  request<Group[]>(`/groups?${new URLSearchParams({ type, sort })}`)
+export const listGroupsByType = (type: string, sort: string, limit: number, offset: number) =>
+  request<Group[]>(`/groups?${new URLSearchParams({ type, sort, limit: String(limit), offset: String(offset) })}`)
 export const listEntryGroups = (id: string | number) =>
   request<Group[]>('/entries/' + encodeURIComponent(id) + '/groups')
 export const getGroup = (id: string | number) =>

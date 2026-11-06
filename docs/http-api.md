@@ -8,6 +8,8 @@
 
 删除词条返回 `deleted`、`updatedGroupIds`、`deletedGroupIds`；当删除导致重复关系组时返回 409，所有数据保持不变。空列表为 `[]`，时间是 UTC RFC 3339，旧记录的 `updatedAt` 可能为 `null`。
 
+`GET /api/groups` 可选用 `limit`（1 至 500）和 `offset`（非负整数，默认为 0）分页，例如 `/api/groups?sort=updated_desc&limit=50&offset=50`。不传 `limit` 时保持返回全部结果的原有行为。分页使用当前数据的排序，读取期间数据变化可能改变后续页。POST、PUT 和 PATCH 的请求正文上限为 16 MiB，超过时返回 HTTP 413 和 `request_too_large` 错误码。
+
 下面的 PowerShell 7 示例连续收录两个词条并建组；遇到重复时复用已有对象。运行前先启动程序。
 
 ```powershell

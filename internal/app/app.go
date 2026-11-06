@@ -1,8 +1,11 @@
 package app
 
 import (
+	"bytes"
 	"database/sql"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -95,6 +98,19 @@ func (w *apiResponseWriter) Write(p []byte) (int, error) {
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		if r.Body != nil && (r.Method == http.MethodPost || r.Method == http.MethodPut || r.Method == http.MethodPatch) {
+			body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 16<<20))
+			if err != nil {
+				var tooLarge *http.MaxBytesError
+				if errors.As(err, &tooLarge) {
+					writeJSON(w, http.StatusRequestEntityTooLarge, apiError{Code: "request_too_large", Error: "请求正文超过 16 MiB。"})
+					return
+				}
+				writeJSON(w, http.StatusBadRequest, apiError{Error: "无法读取请求正文。"})
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+		}
 		a.writes.Lock()
 		defer a.writes.Unlock()
 		if match := r.Header.Get("If-Match"); match != "" && (r.Method == http.MethodPut || r.Method == http.MethodPatch || r.Method == http.MethodDelete) {

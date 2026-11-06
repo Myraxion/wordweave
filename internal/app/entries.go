@@ -47,9 +47,9 @@ func (a *App) listEntries(ctx context.Context, sortOrder, query string) ([]Entry
 	var orderBy string
 	switch sortOrder {
 	case "created_asc":
-		orderBy = "created_at ASC, id ASC"
+		orderBy = "rtrim(created_at, 'Z') ASC, id ASC"
 	case "created_desc":
-		orderBy = "created_at DESC, id DESC"
+		orderBy = "rtrim(created_at, 'Z') DESC, id DESC"
 	case "updated_asc":
 		orderBy = "rtrim(COALESCE(updated_at, created_at), 'Z') ASC, id ASC"
 	case "alpha_asc":

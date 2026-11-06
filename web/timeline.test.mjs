@@ -62,3 +62,26 @@ test('browse pages group results by selected local date and retain other layouts
     server.kill()
   }
 })
+
+test('relation browser loads groups in pages', async () => {
+  const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '5197', '--strictPort'], { stdio: 'ignore' })
+  let browser
+  try {
+    for (let i = 0; i < 80; i++) { try { if ((await fetch('http://127.0.0.1:5197')).ok) break } catch {} await new Promise(resolve => setTimeout(resolve, 100)) }
+    browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || undefined })
+    const page = await browser.newPage()
+    const offsets = []
+    const groups = Array.from({ length: 51 }, (_, i) => ({ id: i + 1, type: '近义', note: '', createdAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', members: [{ id: 1, spelling: 'apple', definition: '', createdAt: '2026-01-01T00:00:00Z' }, { id: 2, spelling: 'pear', definition: '', createdAt: '2026-01-01T00:00:00Z' }] }))
+    await page.route('**/api/**', route => {
+      const url = new URL(route.request().url())
+      if (url.pathname === '/api/group-types') return route.fulfill({ json: ['近义'] })
+      if (url.pathname === '/api/stats') return route.fulfill({ json: { entries: 2, groups: 51 } })
+      if (url.pathname === '/api/groups') { const offset = Number(url.searchParams.get('offset')); const limit = Number(url.searchParams.get('limit')) || groups.length; offsets.push(offset); return route.fulfill({ json: groups.slice(offset, offset + limit) }) }
+      return route.abort()
+    })
+    await page.goto('http://127.0.0.1:5197/relations')
+    await page.getByRole('button', { name: '加载更多' }).click()
+    await page.getByText('已显示 51 组').waitFor()
+    assert.deepEqual(offsets, [0, 50])
+  } finally { await browser?.close(); server.kill() }
+})

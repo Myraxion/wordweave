@@ -1050,6 +1050,18 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "可选页大小；不提供时返回全部结果",
+            "schema": { "type": "integer", "minimum": 1, "maximum": 500 }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "description": "分页偏移量，默认 0；与 limit 一起使用",
+            "schema": { "type": "integer", "minimum": 0, "default": 0 }
           }
         ]
       },

@@ -39,12 +39,37 @@ func (a *App) browseGroups(w http.ResponseWriter, r *http.Request) {
 		where = "g.type = ?"
 		args = append(args, kind)
 	}
+	sortOrder := r.URL.Query().Get("sort")
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		limit, err := strconv.Atoi(raw)
+		if err != nil || limit < 1 || limit > 500 {
+			writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的分页参数。"})
+			return
+		}
+		offset := 0
+		if value := r.URL.Query().Get("offset"); value != "" {
+			offset, err = strconv.Atoi(value)
+			if err != nil || offset < 0 {
+				writeJSON(w, http.StatusBadRequest, apiError{Error: "无效的分页参数。"})
+				return
+			}
+		}
+		stamp := "COALESCE(g.updated_at, g.created_at)"
+		if sortOrder == "created_asc" || sortOrder == "created_desc" {
+			stamp = "g.created_at"
+		}
+		direction := "DESC"
+		if sortOrder == "created_asc" || sortOrder == "updated_asc" {
+			direction = "ASC"
+		}
+		where = "g.id IN (SELECT g.id FROM relation_groups g WHERE " + where + " ORDER BY rtrim(" + stamp + ", 'Z') " + direction + ", g.id " + direction + " LIMIT ? OFFSET ?)"
+		args = append(args, limit, offset)
+	}
 	groups, err := a.queryGroups(r.Context(), where, args...)
 	if err != nil {
 		internalError(w, err)
 		return
 	}
-	sortOrder := r.URL.Query().Get("sort")
 	byCreated := sortOrder == "created_asc" || sortOrder == "created_desc"
 	ascending := sortOrder == "created_asc" || sortOrder == "updated_asc"
 	groupTime := func(group Group) string {

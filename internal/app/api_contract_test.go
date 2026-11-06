@@ -5,8 +5,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestEntryCreationRejectsUnknownFieldsAndTrailingData(t *testing.T) {
@@ -149,4 +151,74 @@ func TestFindEntryByExactSpelling(t *testing.T) {
 		t.Fatalf("got %+v, want %+v", got, want)
 	}
 	request(t, s, "GET", "/api/entries/exact?spelling=missing", "", http.StatusNotFound, nil)
+}
+
+func TestIncompleteBodyDoesNotBlockOtherWrites(t *testing.T) {
+	s := startApp(t, t.TempDir())
+	reader, writer := io.Pipe()
+	defer writer.Close()
+	req, err := http.NewRequest("POST", s.URL+"/api/entries", reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		res, err := s.Client().Do(req)
+		if err == nil {
+			res.Body.Close()
+		}
+	}()
+	if _, err := writer.Write([]byte(`{"spelling":`)); err != nil {
+		t.Fatal(err)
+	}
+	client := &http.Client{Timeout: 2 * time.Second}
+	res, err := client.Post(s.URL+"/api/entries", "application/json", strings.NewReader(`{"spelling":"pear"}`))
+	writer.Close()
+	<-done
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer res.Body.Close()
+	if res.StatusCode != http.StatusCreated {
+		t.Fatalf("status %d", res.StatusCode)
+	}
+}
+
+func TestBrowseGroupsPagination(t *testing.T) {
+	s := startApp(t, t.TempDir())
+	a := collect(t, s, "a", "")
+	b := collect(t, s, "b", "")
+	c := collect(t, s, "c", "")
+	g1 := createGroup(t, s, a.ID, "近义", "", b.ID)
+	g2 := createGroup(t, s, a.ID, "近义", "", c.ID)
+	g3 := createGroup(t, s, b.ID, "近义", "", c.ID)
+	for _, tc := range []struct {
+		path string
+		want []int64
+	}{
+		{"/api/groups?sort=created_asc&limit=2&offset=0", []int64{g1.ID, g2.ID}},
+		{"/api/groups?sort=created_asc&limit=2&offset=2", []int64{g3.ID}},
+		{"/api/groups?sort=created_desc", []int64{g3.ID, g2.ID, g1.ID}},
+	} {
+		var got []group
+		request(t, s, "GET", tc.path, "", http.StatusOK, &got)
+		var ids []int64
+		for _, g := range got {
+			ids = append(ids, g.ID)
+		}
+		if !reflect.DeepEqual(ids, tc.want) {
+			t.Fatalf("%s got %v want %v", tc.path, ids, tc.want)
+		}
+	}
+}
+
+func TestOversizedRequestIsRejected(t *testing.T) {
+	s := startApp(t, t.TempDir())
+	request(t, s, "POST", "/api/entries", strings.Repeat("x", 16<<20+1), http.StatusRequestEntityTooLarge, nil)
+	var entries []entry
+	request(t, s, "GET", "/api/entries", "", http.StatusOK, &entries)
+	if len(entries) != 0 {
+		t.Fatal("oversized request changed data")
+	}
 }

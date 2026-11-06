@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -153,5 +154,38 @@ func TestEntriesSortedByModificationTime(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestEntriesSortedByCreationTimeFractions(t *testing.T) {
+	dir := t.TempDir()
+	s := startApp(t, dir)
+	db := fixtureDB(t, dir, "")
+	for i, stamp := range []string{"2020-01-02T00:00:00.1Z", "2020-01-02T00:00:00.11Z", "2020-01-02T00:00:00.110000001Z"} {
+		if _, err := db.Exec("INSERT INTO entries(spelling, spelling_key, definition, created_at) VALUES (?, ?, '', ?)", strconv.Itoa(i), strconv.Itoa(i), stamp); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, tc := range []struct {
+		path string
+		want []int64
+	}{{"/api/entries?sort=created_asc", []int64{1, 2, 3}}, {"/api/search?sort=created_desc", []int64{3, 2, 1}}} {
+		var entries []entry
+		if strings.HasPrefix(tc.path, "/api/search") {
+			var result struct {
+				Entries []entry `json:"entries"`
+			}
+			request(t, s, "GET", tc.path, "", http.StatusOK, &result)
+			entries = result.Entries
+		} else {
+			request(t, s, "GET", tc.path, "", http.StatusOK, &entries)
+		}
+		var ids []int64
+		for _, e := range entries {
+			ids = append(ids, e.ID)
+		}
+		if !reflect.DeepEqual(ids, tc.want) {
+			t.Fatalf("%s: got %v want %v", tc.path, ids, tc.want)
+		}
 	}
 }

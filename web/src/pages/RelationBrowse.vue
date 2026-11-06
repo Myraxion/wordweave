@@ -24,6 +24,9 @@ const sortOrder = ref(sortOptions.some(option => option.value === initialSort) ?
 const groups = ref<Group[]>([])
 const error = ref('')
 const loading = ref(true)
+const pageSize = 50
+const hasMore = ref(false)
+const loadingMore = ref(false)
 const layout = useBrowseLayout('wordweave.relation-layout')
 let requestNumber = 0
 
@@ -37,16 +40,29 @@ function changeFilters() {
 async function selectType(type: string) {
   selected.value = type
   const current = ++requestNumber
+  loadingMore.value = false
   loading.value = true
   error.value = ''
   try {
-    const result = await listGroupsByType(type, sortOrder.value)
-    if (current === requestNumber) groups.value = result
+    const result = await listGroupsByType(type, sortOrder.value, pageSize, 0)
+    if (current === requestNumber) { groups.value = result; hasMore.value = result.length === pageSize }
   } catch (err) {
     if (current === requestNumber) error.value = errorMessage(err)
   } finally {
     if (current === requestNumber) loading.value = false
   }
+}
+
+async function loadMore() {
+  const current = requestNumber
+  loadingMore.value = true
+  error.value = ''
+  try {
+    const result = await listGroupsByType(selected.value, sortOrder.value, pageSize, groups.value.length)
+    if (current === requestNumber) { groups.value.push(...result); hasMore.value = result.length === pageSize }
+  } catch (err) {
+    if (current === requestNumber) error.value = errorMessage(err)
+  } finally { if (current === requestNumber) loadingMore.value = false }
 }
 
 async function load() {
@@ -96,12 +112,13 @@ onMounted(load)
     <p v-else-if="loading" class="loading" role="status">正在读取关系组…</p>
     <section v-else aria-label="关系组列表">
       <div class="results-heading">
-        <h2>{{ selected || '全部关系组' }} <span class="small-count">{{ groups.length }} 组</span></h2>
+        <h2>{{ selected || '全部关系组' }} <span class="small-count">已显示 {{ groups.length }} 组</span></h2>
       </div>
       <p v-if="!groups.length" class="browse-empty">{{ selected ? '这个类型还没有关系组，点击“建立关系”开始整理。' : '还没有关系组，点击“建立关系”开始整理。' }}</p>
       <DateGrid v-else :items="groups" :layout="layout" :sort="sortOrder" kind="group" v-slot="{ item: group, grouped }">
         <GroupCard :group="group" :mode="studyMode" :hide-date="grouped" compact browse />
       </DateGrid>
+      <button v-if="hasMore" class="button secondary" type="button" :disabled="loadingMore" @click="loadMore">{{ loadingMore ? '正在读取…' : '加载更多' }}</button>
     </section>
   </div>
 </template>
