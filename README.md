@@ -85,3 +85,7 @@ $env:WORDWEAVE_DATA_DIR = 'D:\Notebooks\English'
 
 - [HTTP 自动化调用](docs/http-api.md)和 [OpenAPI 规范](docs/openapi.json)
 - [开发、验证与发布](docs/development.md)
+
+## 开源协议
+
+本项目采用 [MIT 许可证](LICENSE)。
